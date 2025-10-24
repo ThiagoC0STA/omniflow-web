@@ -28,7 +28,8 @@ import {
   Calendar,
   MessageSquare,
   Activity,
-  BarChart3
+  BarChart3,
+  Newspaper
 } from 'lucide-react'
 
 const dashboardStats = [
@@ -122,6 +123,16 @@ const menuItems = [
     icon: BookOpen,
     gradient: 'from-orange-500 via-orange-600 to-amber-600',
     href: '/manuals',
+    badge: null,
+    badgeColor: ''
+  },
+  {
+    id: 'news',
+    title: 'News',
+    subtitle: 'Latest company updates and announcements',
+    icon: Newspaper,
+    gradient: 'from-indigo-500 via-indigo-600 to-purple-600',
+    href: '/news',
     badge: null,
     badgeColor: ''
   },
