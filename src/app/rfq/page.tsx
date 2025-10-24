@@ -30,7 +30,8 @@ import {
   Filter,
   Search,
   TrendingUp,
-  Target
+  Target,
+  X
 } from 'lucide-react'
 
 interface RFQ {
@@ -58,8 +59,7 @@ interface RFQItem {
 
 export default function RFQPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'new' | 'drafts' | 'submitted'>('new')
-  const [showNewRFQ, setShowNewRFQ] = useState(false)
+  const [showNewRFQModal, setShowNewRFQModal] = useState(false)
 
   const rfqs: RFQ[] = [
     {
@@ -169,7 +169,7 @@ export default function RFQPage() {
                 Active
               </Badge>
               <Button
-                onClick={() => setShowNewRFQ(true)}
+                onClick={() => setShowNewRFQModal(true)}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -261,221 +261,177 @@ export default function RFQPage() {
           </Card>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg w-fit">
-            <Button
-              variant={activeTab === 'new' ? 'default' : 'ghost'}
-              onClick={() => setActiveTab('new')}
-              className={`px-6 ${activeTab === 'new' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New RFQ
-            </Button>
-            <Button
-              variant={activeTab === 'drafts' ? 'default' : 'ghost'}
-              onClick={() => setActiveTab('drafts')}
-              className={`px-6 ${activeTab === 'drafts' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Drafts
-            </Button>
-            <Button
-              variant={activeTab === 'submitted' ? 'default' : 'ghost'}
-              onClick={() => setActiveTab('submitted')}
-              className={`px-6 ${activeTab === 'submitted' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Submitted
-            </Button>
+        {/* Header with New RFQ Button */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">RFQ History</h2>
+            <p className="text-slate-600">Manage your quote requests</p>
           </div>
+          <Button
+            onClick={() => setShowNewRFQModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New RFQ
+          </Button>
         </div>
 
-        {/* Content */}
-        {activeTab === 'new' ? (
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <FileText className="h-5 w-5 text-green-600" />
-                <span>Create New RFQ</span>
-              </CardTitle>
-              <CardDescription>
-                Fill out the form below to submit a new request for quote
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">RFQ Title</label>
-                  <Input placeholder="Enter RFQ title" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Category</label>
-                  <Input placeholder="e.g., System Upgrade, Maintenance" />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Description</label>
-                <textarea 
-                  className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  rows={4}
-                  placeholder="Describe your requirements in detail"
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Priority</label>
-                  <select className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                    <option>Low</option>
-                    <option>Medium</option>
-                    <option>High</option>
-                    <option>Urgent</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Due Date</label>
-                  <Input type="date" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Estimated Value</label>
-                  <Input placeholder="$0.00" />
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-slate-900">Items</h3>
-                  <Button variant="outline" size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Item
-                  </Button>
-                </div>
-                
-                <div className="space-y-4">
-                  <Card className="border border-slate-200">
-                    <CardContent className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">Product</label>
-                          <Input placeholder="Product name" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">Quantity</label>
-                          <Input type="number" placeholder="1" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">Unit Price</label>
-                          <Input placeholder="$0.00" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">Total</label>
-                          <Input placeholder="$0.00" disabled />
-                        </div>
+        {/* RFQ History */}
+        <div className="space-y-6">
+          {rfqs.map((rfq) => (
+            <Card key={rfq.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold text-slate-900">{rfq.title}</h3>
+                      <Badge 
+                        variant={rfq.status === 'Approved' ? 'default' : rfq.status === 'Rejected' ? 'destructive' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {rfq.status}
+                      </Badge>
+                      <Badge 
+                        variant={rfq.priority === 'Urgent' ? 'destructive' : rfq.priority === 'High' ? 'secondary' : 'outline'}
+                        className="text-xs"
+                      >
+                        {rfq.priority}
+                      </Badge>
+                    </div>
+                    <p className="text-slate-600 mb-3">{rfq.description}</p>
+                    <div className="flex items-center gap-6 text-sm text-slate-500">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        Created: {rfq.createdAt}
                       </div>
-                      <div className="mt-4 space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Specifications</label>
-                        <textarea 
-                          className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                          rows={2}
-                          placeholder="Detailed specifications"
-                        />
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        Due: {rfq.dueDate}
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4 pt-6">
-                <Button className="bg-green-600 hover:bg-green-700 text-white">
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit RFQ
-                </Button>
-                <Button variant="outline">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Save as Draft
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input 
-                    placeholder="Search RFQs..." 
-                    className="pl-10 w-64"
-                  />
-                </div>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
-              </div>
-            </div>
-
-            {/* RFQ List */}
-            <div className="space-y-4">
-              {rfqs.map((rfq) => (
-                <Card key={rfq.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
-                  <CardContent className="p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <h3 className="text-lg font-semibold text-slate-900">{rfq.title}</h3>
-                          <Badge className={getStatusColor(rfq.status)}>
-                            {rfq.status}
-                          </Badge>
-                          <Badge variant="secondary" className={getPriorityColor(rfq.priority)}>
-                            {rfq.priority}
-                          </Badge>
-                        </div>
-                        
-                        <p className="text-slate-600 mb-4">{rfq.description}</p>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="h-4 w-4 text-slate-400" />
-                            <span className="text-slate-600">Created: {rfq.createdAt}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Clock className="h-4 w-4 text-slate-400" />
-                            <span className="text-slate-600">Due: {rfq.dueDate}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <DollarSign className="h-4 w-4 text-slate-400" />
-                            <span className="text-slate-600">Value: {rfq.estimatedValue}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <User className="h-4 w-4 text-slate-400" />
-                            <span className="text-slate-600">{rfq.requester}</span>
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-4 w-4" />
+                        {rfq.estimatedValue}
                       </div>
-                      
-                      <div className="mt-6 lg:mt-0 lg:ml-6 flex items-center space-x-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Download className="h-4 w-4 mr-2" />
-                          Export
-                        </Button>
+                      <div className="flex items-center gap-1">
+                        <User className="h-4 w-4" />
+                        {rfq.requester}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm">
+                      <Eye className="h-4 w-4 mr-1" />
+                      View
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* New RFQ Modal */}
+        {showNewRFQModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="h-5 w-5" />
+                    New RFQ
+                  </CardTitle>
+                  <CardDescription>
+                    Create a new Request for Quote
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNewRFQModal(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">RFQ Title</label>
+                    <Input placeholder="Enter RFQ title" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Category</label>
+                    <Input placeholder="Select category" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
+                  <textarea 
+                    className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={4}
+                    placeholder="Describe your requirements..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Due Date</label>
+                    <Input type="date" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Estimated Value</label>
+                    <Input placeholder="$0.00" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Priority</label>
+                    <select className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      <option>Low</option>
+                      <option>Medium</option>
+                      <option>High</option>
+                      <option>Urgent</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Contact Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
+                      <Input placeholder="Your full name" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                      <Input type="email" placeholder="your.email@company.com" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Phone</label>
+                      <Input placeholder="+1 (555) 123-4567" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Company</label>
+                      <Input placeholder="Your company name" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-6 border-t">
+                  <Button variant="outline" onClick={() => setShowNewRFQModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button variant="outline">
+                    Save as Draft
+                  </Button>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Submit RFQ
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
