@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { Eye, EyeOff, Loader2, CheckCircle, XCircle, Shield, Key, Lock } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 
-export default function SetPasswordPage() {
+function SetPasswordContent() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -211,5 +211,20 @@ export default function SetPasswordPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-slate-600" />
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SetPasswordContent />
+    </Suspense>
   )
 }
