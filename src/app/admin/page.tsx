@@ -1,14 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Logo } from '@/components/Logo'
+import { useAuthStore } from '@/store/auth-store'
 import { 
   ArrowLeft, 
   Users, 
@@ -42,7 +41,12 @@ import {
   MessageSquare,
   FileText,
   Headphones,
-  BookOpen
+  BookOpen,
+  Newspaper,
+  GraduationCap,
+  X,
+  Send,
+  LogOut
 } from 'lucide-react'
 
 interface User {
@@ -53,145 +57,267 @@ interface User {
   status: 'active' | 'inactive' | 'pending'
   lastLogin: string
   createdAt: string
-  avatar?: string
-  department?: string
-  permissions: string[]
+  avatarUrl?: string
 }
 
-interface AdminStats {
-  totalUsers: number
-  activeUsers: number
-  pendingInvites: number
-  totalTickets: number
-  resolvedTickets: number
-  avgResponseTime: string
-  systemUptime: string
-  storageUsed: string
+interface Training {
+  id: string
+  title: string
+  description: string
+  duration: string
+  level: 'Beginner' | 'Intermediate' | 'Advanced'
+  category: string
+  instructor: string
+  status: 'draft' | 'published' | 'archived'
+  createdAt: string
+}
+
+interface RFQ {
+  id: string
+  title: string
+  client: string
+  email: string
+  status: 'pending' | 'in-review' | 'quoted' | 'approved' | 'rejected'
+  priority: 'low' | 'medium' | 'high'
+  estimatedValue: string
+  dueDate: string
+  submittedAt: string
+}
+
+interface NewsArticle {
+  id: string
+  title: string
+  excerpt: string
+  author: string
+  category: string
+  status: 'draft' | 'published' | 'archived'
+  publishedAt: string
+  createdAt: string
 }
 
 export default function AdminPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'settings'>('users')
-  const [searchQuery, setSearchQuery] = useState('')
+  const { user, signOut } = useAuthStore()
+  const [activeTab, setActiveTab] = useState<'users' | 'training' | 'rfqs' | 'news'>('users')
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [showAddTrainingModal, setShowAddTrainingModal] = useState(false)
+  const [showAddNewsModal, setShowAddNewsModal] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const stats: AdminStats = {
-    totalUsers: 156,
-    activeUsers: 142,
-    pendingInvites: 8,
-    totalTickets: 24,
-    resolvedTickets: 18,
-    avgResponseTime: '2.4h',
-    systemUptime: '99.9%',
-    storageUsed: '2.4GB'
-  }
+  // Redirect if not admin - Temporarily disabled for testing
+  // useEffect(() => {
+  //   if (user && user.role !== 'admin') {
+  //     router.push('/portal')
+  //   }
+  // }, [user, router])
 
+  // Mock data
   const users: User[] = [
     {
       id: '1',
       name: 'John Smith',
-      email: 'john.smith@company.com',
-      role: 'admin',
+      email: 'john@example.com',
+      role: 'client',
       status: 'active',
-      lastLogin: '2024-01-16 09:30',
-      createdAt: '2023-06-15',
-      department: 'Engineering',
-      permissions: ['user_management', 'system_config', 'analytics']
+      lastLogin: '2024-01-15',
+      createdAt: '2023-12-01'
     },
     {
       id: '2',
       name: 'Sarah Johnson',
-      email: 'sarah.johnson@company.com',
-      role: 'client',
+      email: 'sarah@example.com',
+      role: 'admin',
       status: 'active',
-      lastLogin: '2024-01-16 08:45',
-      createdAt: '2023-08-20',
-      department: 'Operations',
-      permissions: ['view_data', 'submit_tickets']
+      lastLogin: '2024-01-14',
+      createdAt: '2023-11-15'
     },
     {
       id: '3',
       name: 'Mike Davis',
-      email: 'mike.davis@company.com',
+      email: 'mike@example.com',
       role: 'client',
       status: 'pending',
-      lastLogin: 'Never',
-      createdAt: '2024-01-15',
-      department: 'Maintenance',
-      permissions: ['view_data']
-    },
-    {
-      id: '4',
-      name: 'Lisa Wilson',
-      email: 'lisa.wilson@company.com',
-      role: 'client',
-      status: 'inactive',
-      lastLogin: '2024-01-10 14:20',
-      createdAt: '2023-09-12',
-      department: 'Quality Control',
-      permissions: ['view_data', 'submit_tickets']
+      lastLogin: '2024-01-10',
+      createdAt: '2024-01-01'
     }
   ]
+
+  const trainings: Training[] = [
+    {
+      id: '1',
+      title: 'OMNI-3000 Basic Operations',
+      description: 'Learn the fundamentals of operating the OMNI-3000 system',
+      duration: '4 hours',
+      level: 'Beginner',
+      category: 'Operations',
+      instructor: 'John Smith',
+      status: 'published',
+      createdAt: '2024-01-10'
+    },
+    {
+      id: '2',
+      title: 'OMNI-6000 Intermediate Training',
+      description: 'Advanced techniques for OMNI-6000 system maintenance',
+      duration: '6 hours',
+      level: 'Intermediate',
+      category: 'Maintenance',
+      instructor: 'Sarah Johnson',
+      status: 'draft',
+      createdAt: '2024-01-12'
+    }
+  ]
+
+  const rfqs: RFQ[] = [
+    {
+      id: '1',
+      title: 'OMNI-7000 System Quote',
+      client: 'ABC Manufacturing',
+      email: 'contact@abc.com',
+      status: 'pending',
+      priority: 'high',
+      estimatedValue: '$50,000',
+      dueDate: '2024-02-15',
+      submittedAt: '2024-01-15'
+    },
+    {
+      id: '2',
+      title: 'Maintenance Service Contract',
+      client: 'XYZ Corp',
+      email: 'procurement@xyz.com',
+      status: 'in-review',
+      priority: 'medium',
+      estimatedValue: '$25,000',
+      dueDate: '2024-02-20',
+      submittedAt: '2024-01-14'
+    }
+  ]
+
+  const newsArticles: NewsArticle[] = [
+    {
+      id: '1',
+      title: 'OMNI-7000 Series Launch',
+      excerpt: 'Introducing the latest OMNI-7000 series with enhanced automation',
+      author: 'Sarah Johnson',
+      category: 'Product Updates',
+      status: 'published',
+      publishedAt: '2024-01-15',
+      createdAt: '2024-01-14'
+    },
+    {
+      id: '2',
+      title: 'Q4 2023 Financial Results',
+      excerpt: 'Our company reports record-breaking revenue and expansion',
+      author: 'Michael Chen',
+      category: 'Company News',
+      status: 'draft',
+      publishedAt: '',
+      createdAt: '2024-01-12'
+    }
+  ]
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      router.push('/login')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
+
+  const toggleUserRole = (userId: string) => {
+    // TODO: Implement role toggle
+    console.log('Toggle role for user:', userId)
+  }
+
+  const deleteUser = (userId: string) => {
+    // TODO: Implement user deletion
+    console.log('Delete user:', userId)
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800'
-      case 'inactive': return 'bg-gray-100 text-gray-800'
       case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'inactive': return 'bg-red-100 text-red-800'
+      case 'published': return 'bg-green-100 text-green-800'
+      case 'draft': return 'bg-yellow-100 text-yellow-800'
+      case 'archived': return 'bg-gray-100 text-gray-800'
+      case 'in-review': return 'bg-blue-100 text-blue-800'
+      case 'quoted': return 'bg-purple-100 text-purple-800'
+      case 'approved': return 'bg-green-100 text-green-800'
+      case 'rejected': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'admin': return <Crown className="h-4 w-4 text-purple-600" />
-      case 'client': return <UserCheck className="h-4 w-4 text-blue-600" />
-      default: return <Users className="h-4 w-4 text-slate-600" />
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800'
+      case 'medium': return 'bg-yellow-100 text-yellow-800'
+      case 'low': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
     }
   }
 
-  const filteredUsers = users.filter(user => 
-    searchQuery === '' || 
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.department?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  // Temporarily allow all users for testing
+  // if (!user || user.role !== 'admin') {
+  //   return (
+  //     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+  //       <Card className="w-full max-w-md">
+  //         <CardContent className="p-6 text-center">
+  //           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+  //           <h2 className="text-xl font-semibold text-slate-900 mb-2">Access Denied</h2>
+  //           <p className="text-slate-600 mb-4">You don't have permission to access this page.</p>
+  //           <Button onClick={() => router.push('/portal')}>
+  //             Return to Portal
+  //           </Button>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/50 shadow-sm sticky top-0 z-50">
+      <header className="bg-white border-b border-slate-200/50 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center space-x-4">
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => router.push('/portal')}
-                className="flex items-center gap-2 p-3"
+                className="flex items-center gap-2 px-3"
               >
                 <ArrowLeft className="h-4 w-4" />
-             </Button>
+              </Button>
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-purple-100 rounded-lg">
-                  <Shield className="h-6 w-6 text-purple-600" />
+                  <Crown className="h-6 w-6 text-purple-600" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-semibold text-slate-900">Admin Panel</h1>
-                  <p className="text-sm text-slate-600">System administration and management</p>
+                  <h1 className="text-xl font-bold text-slate-900">Admin Panel</h1>
+                  <p className="text-sm text-slate-600">Manage users, content, and system settings</p>
                 </div>
               </div>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                <Crown className="h-3 w-3 mr-1" />
-                Admin Access
-              </Badge>
+            <div className="flex items-center space-x-3">
               <Button
-                onClick={() => {/* Handle invite user */}}
-                className="bg-purple-600 hover:bg-purple-700 text-white transition-all duration-200"
+                variant="outline"
+                onClick={handleSignOut}
+                className="flex items-center gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Invite User
+                <LogOut className="h-4 w-4" />
+                Logout
               </Button>
             </div>
           </div>
@@ -199,80 +325,60 @@ export default function AdminPage() {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                Admin Dashboard 👑
-              </h1>
-              <p className="text-slate-600 text-lg">
-                Manage users, monitor system performance, and configure settings
-              </p>
-            </div>
-            <div className="mt-4 sm:mt-0">
-              <Button className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl transition-all">
-                <Settings className="h-4 w-4 mr-2" />
-                System Settings
-              </Button>
-            </div>
-          </div>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Total Users</p>
+                  <p className="text-2xl font-bold text-slate-900">{users.length}</p>
+                </div>
                 <div className="p-3 bg-blue-100 rounded-xl">
                   <Users className="h-6 w-6 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stats.totalUsers}</p>
-                  <p className="text-sm text-slate-600">Total Users</p>
-                </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Active Trainings</p>
+                  <p className="text-2xl font-bold text-slate-900">{trainings.filter(t => t.status === 'published').length}</p>
+                </div>
                 <div className="p-3 bg-green-100 rounded-xl">
-                  <UserCheck className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stats.activeUsers}</p>
-                  <p className="text-sm text-slate-600">Active Users</p>
+                  <GraduationCap className="h-6 w-6 text-green-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-yellow-100 rounded-xl">
-                  <Clock className="h-6 w-6 text-yellow-600" />
-                </div>
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold text-slate-900">{stats.pendingInvites}</p>
-                  <p className="text-sm text-slate-600">Pending Invites</p>
+                  <p className="text-sm font-medium text-slate-600">Pending RFQs</p>
+                  <p className="text-2xl font-bold text-slate-900">{rfqs.filter(r => r.status === 'pending').length}</p>
+                </div>
+                <div className="p-3 bg-orange-100 rounded-xl">
+                  <FileText className="h-6 w-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Published News</p>
+                  <p className="text-2xl font-bold text-slate-900">{newsArticles.filter(n => n.status === 'published').length}</p>
+                </div>
                 <div className="p-3 bg-purple-100 rounded-xl">
-                  <BarChart3 className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stats.systemUptime}</p>
-                  <p className="text-sm text-slate-600">System Uptime</p>
+                  <Newspaper className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
@@ -285,203 +391,408 @@ export default function AdminPage() {
             <Button
               variant={activeTab === 'users' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('users')}
-              className={`px-6 ${activeTab === 'users' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
+              className={`px-6 ${activeTab === 'users' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'} transition-all duration-200`}
             >
               <Users className="h-4 w-4 mr-2" />
               Users
             </Button>
             <Button
-              variant={activeTab === 'analytics' ? 'default' : 'ghost'}
-              onClick={() => setActiveTab('analytics')}
-              className={`px-6 ${activeTab === 'analytics' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
+              variant={activeTab === 'training' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('training')}
+              className={`px-6 ${activeTab === 'training' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'} transition-all duration-200`}
             >
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Analytics
+              <GraduationCap className="h-4 w-4 mr-2" />
+              Training
             </Button>
             <Button
-              variant={activeTab === 'settings' ? 'default' : 'ghost'}
-              onClick={() => setActiveTab('settings')}
-              className={`px-6 ${activeTab === 'settings' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
+              variant={activeTab === 'rfqs' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('rfqs')}
+              className={`px-6 ${activeTab === 'rfqs' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'} transition-all duration-200`}
             >
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
+              <FileText className="h-4 w-4 mr-2" />
+              RFQs
+            </Button>
+            <Button
+              variant={activeTab === 'news' ? 'default' : 'ghost'}
+              onClick={() => setActiveTab('news')}
+              className={`px-6 ${activeTab === 'news' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'} transition-all duration-200`}
+            >
+              <Newspaper className="h-4 w-4 mr-2" />
+              News
             </Button>
           </div>
         </div>
 
-        {/* Content */}
-        {activeTab === 'users' ? (
-          <div className="space-y-6">
-            {/* Search and Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input 
-                    placeholder="Search users..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-64"
-                  />
-                </div>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-                <Button variant="outline">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import
-                </Button>
-              </div>
-            </div>
+        {/* Search and Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder={`Search ${activeTab}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            />
+          </div>
+          <div className="flex gap-2">
+            {activeTab === 'users' && (
+              <Button
+                onClick={() => setShowAddUserModal(true)}
+                className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            )}
+            {activeTab === 'training' && (
+              <Button
+                onClick={() => setShowAddTrainingModal(true)}
+                className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Training
+              </Button>
+            )}
+            {activeTab === 'news' && (
+              <Button
+                onClick={() => setShowAddNewsModal(true)}
+                className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add News
+              </Button>
+            )}
+          </div>
+        </div>
 
-            {/* Users List */}
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-0">
-                <div className="h-[600px] overflow-y-auto">
-                  <div className="space-y-0">
-                    {filteredUsers.map((user, index) => (
-                      <div key={user.id} className={`p-6 ${index !== filteredUsers.length - 1 ? 'border-b border-slate-100' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-semibold">
-                              {user.name.split(' ').map(n => n[0]).join('')}
-                            </div>
-                            
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <h3 className="text-lg font-semibold text-slate-900">{user.name}</h3>
-                                {getRoleIcon(user.role)}
-                                <Badge className={getStatusColor(user.status)}>
-                                  {user.status}
-                                </Badge>
-                              </div>
-                              <p className="text-slate-600 mb-2">{user.email}</p>
-                              <div className="flex items-center space-x-4 text-sm text-slate-500">
-                                <span>{user.department}</span>
-                                <span>•</span>
-                                <span>Last login: {user.lastLogin}</span>
-                                <span>•</span>
-                                <span>Joined: {user.createdAt}</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Key className="h-4 w-4 mr-2" />
-                              Reset Password
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </div>
+        {/* Content */}
+        {activeTab === 'users' && (
+          <div className="space-y-4">
+            {users.map((user) => (
+              <Card key={user.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-sm font-semibold">
+                        {user.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">{user.name}</h3>
+                        <p className="text-sm text-slate-600">{user.email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge className={getStatusColor(user.status)}>
+                            {user.status}
+                          </Badge>
+                          <Badge className={user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}>
+                            {user.role}
+                          </Badge>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleUserRole(user.id)}
+                        className="transition-all duration-200"
+                      >
+                        {user.role === 'admin' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteUser(user.id)}
+                        className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        ) : activeTab === 'analytics' ? (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
-                    <span>User Activity</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 bg-slate-50 rounded-lg flex items-center justify-center">
-                    <BarChart3 className="h-16 w-16 text-slate-400" />
+        )}
+
+        {activeTab === 'training' && (
+          <div className="space-y-4">
+            {trainings.map((training) => (
+              <Card key={training.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-slate-900">{training.title}</h3>
+                      <p className="text-sm text-slate-600 mb-2">{training.description}</p>
+                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                        <span>Duration: {training.duration}</span>
+                        <span>Level: {training.level}</span>
+                        <span>Category: {training.category}</span>
+                        <span>Instructor: {training.instructor}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge className={getStatusColor(training.status)}>
+                        {training.status}
+                      </Badge>
+                      <Button variant="outline" size="sm" className="transition-all duration-200">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-              
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Activity className="h-5 w-5 text-blue-600" />
-                    <span>System Performance</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 bg-slate-50 rounded-lg flex items-center justify-center">
-                    <Zap className="h-16 w-16 text-slate-400" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            ))}
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Shield className="h-5 w-5 text-purple-600" />
-                    <span>Security Settings</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+        )}
+
+        {activeTab === 'rfqs' && (
+          <div className="space-y-4">
+            {rfqs.map((rfq) => (
+              <Card key={rfq.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <span>Two-Factor Authentication</span>
-                    <Button variant="outline" size="sm">Enable</Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Password Policy</span>
-                    <Button variant="outline" size="sm">Configure</Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Session Timeout</span>
-                    <Button variant="outline" size="sm">Set</Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Bell className="h-5 w-5 text-orange-600" />
-                    <span>Notifications</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span>Email Notifications</span>
-                    <Button variant="outline" size="sm">Configure</Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>System Alerts</span>
-                    <Button variant="outline" size="sm">Manage</Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>User Invitations</span>
-                    <Button variant="outline" size="sm">Settings</Button>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-slate-900">{rfq.title}</h3>
+                      <p className="text-sm text-slate-600 mb-2">{rfq.client} - {rfq.email}</p>
+                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                        <span>Value: {rfq.estimatedValue}</span>
+                        <span>Due: {formatDate(rfq.dueDate)}</span>
+                        <span>Submitted: {formatDate(rfq.submittedAt)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge className={getStatusColor(rfq.status)}>
+                        {rfq.status}
+                      </Badge>
+                      <Badge className={getPriorityColor(rfq.priority)}>
+                        {rfq.priority}
+                      </Badge>
+                      <Button variant="outline" size="sm" className="transition-all duration-200">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'news' && (
+          <div className="space-y-4">
+            {newsArticles.map((article) => (
+              <Card key={article.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-slate-900">{article.title}</h3>
+                      <p className="text-sm text-slate-600 mb-2">{article.excerpt}</p>
+                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                        <span>Author: {article.author}</span>
+                        <span>Category: {article.category}</span>
+                        <span>Created: {formatDate(article.createdAt)}</span>
+                        {article.publishedAt && <span>Published: {formatDate(article.publishedAt)}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge className={getStatusColor(article.status)}>
+                        {article.status}
+                      </Badge>
+                      <Button variant="outline" size="sm" className="transition-all duration-200">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </div>
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Add User
+                </CardTitle>
+                <CardDescription>
+                  Invite a new user by email
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAddUserModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1 block">Email Address</label>
+                <Input placeholder="user@example.com" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1 block">Role</label>
+                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                  <option value="client">Client</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowAddUserModal(false)}>
+                  Cancel
+                </Button>
+                <Button className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200">
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Invite
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Training Modal */}
+      {showAddTrainingModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Add Training
+                </CardTitle>
+                <CardDescription>
+                  Create a new training course
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAddTrainingModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1 block">Title</label>
+                <Input placeholder="Training course title" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1 block">Description</label>
+                <textarea 
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  rows={3}
+                  placeholder="Course description"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Duration</label>
+                  <Input placeholder="4 hours" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Level</label>
+                  <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Category</label>
+                  <Input placeholder="Operations" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Instructor</label>
+                  <Input placeholder="Instructor name" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowAddTrainingModal(false)}>
+                  Cancel
+                </Button>
+                <Button className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200">
+                  Create Training
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add News Modal */}
+      {showAddNewsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Add News Article
+                </CardTitle>
+                <CardDescription>
+                  Create a new news article
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAddNewsModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1 block">Title</label>
+                <Input placeholder="Article title" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1 block">Excerpt</label>
+                <textarea 
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  rows={3}
+                  placeholder="Article excerpt"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Category</label>
+                  <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    <option value="Product Updates">Product Updates</option>
+                    <option value="Company News">Company News</option>
+                    <option value="Awards">Awards</option>
+                    <option value="Sustainability">Sustainability</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Author</label>
+                  <Input placeholder="Author name" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowAddNewsModal(false)}>
+                  Cancel
+                </Button>
+                <Button className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200">
+                  Create Article
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

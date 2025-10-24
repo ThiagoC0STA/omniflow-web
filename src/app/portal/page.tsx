@@ -29,7 +29,9 @@ import {
   MessageSquare,
   Activity,
   BarChart3,
-  Newspaper
+  Newspaper,
+  Settings,
+  Crown
 } from 'lucide-react'
 
 const dashboardStats = [
@@ -168,7 +170,16 @@ export default function PortalPage() {
               <Logo width={140} height={49} />
             </div>
             
-            <div className="flex items-center">
+            <div className="flex items-center space-x-3">
+              {/* Temporarily show admin button for all users for testing */}
+              <Button
+                variant="outline"
+                onClick={() => router.push('/admin')}
+                className="flex items-center gap-2 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all"
+              >
+                <Crown className="h-4 w-4" />
+                Admin Panel
+              </Button>
               <Button
                 variant="outline"
                 onClick={handleSignOut}
