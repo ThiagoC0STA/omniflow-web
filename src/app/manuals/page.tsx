@@ -428,7 +428,7 @@ export default function ManualsPage() {
                           <Eye className="h-4 w-4 mr-2" />
                           Preview
                         </Button>
-                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
+                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white transition-all duration-200">
                           <Download className="h-4 w-4 mr-2" />
                           Download
                         </Button>

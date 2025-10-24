@@ -193,7 +193,7 @@ export default function SupportPage() {
               </Badge>
               <Button
                 onClick={() => setActiveTab('new')}
-                className="bg-red-600 hover:bg-red-700 text-white"
+                className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New Ticket
@@ -421,7 +421,7 @@ export default function SupportPage() {
               </div>
               
               <div className="flex items-center space-x-4 pt-6">
-                <Button className="bg-red-600 hover:bg-red-700 text-white">
+                <Button className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200">
                   <Send className="h-4 w-4 mr-2" />
                   Submit Ticket
                 </Button>

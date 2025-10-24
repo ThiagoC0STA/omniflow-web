@@ -170,7 +170,7 @@ export default function RFQPage() {
               </Badge>
               <Button
                 onClick={() => setShowNewRFQModal(true)}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white transition-all duration-200"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New RFQ
@@ -269,7 +269,7 @@ export default function RFQPage() {
           </div>
           <Button
             onClick={() => setShowNewRFQModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 transition-all duration-200"
           >
             <Plus className="h-4 w-4 mr-2" />
             New RFQ
@@ -426,7 +426,7 @@ export default function RFQPage() {
                   <Button variant="outline">
                     Save as Draft
                   </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
                     Submit RFQ
                   </Button>
                 </div>

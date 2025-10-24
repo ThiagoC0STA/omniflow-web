@@ -351,7 +351,7 @@ export default function TrainingPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                      <Button className="bg-purple-600 hover:bg-purple-700 text-white transition-all duration-200">
                         <Play className="h-4 w-4 mr-2" />
                         Start Course
                       </Button>

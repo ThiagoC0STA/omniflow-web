@@ -188,7 +188,7 @@ export default function AdminPage() {
               </Badge>
               <Button
                 onClick={() => {/* Handle invite user */}}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-purple-600 hover:bg-purple-700 text-white transition-all duration-200"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Invite User

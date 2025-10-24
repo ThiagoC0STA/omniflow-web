@@ -253,7 +253,7 @@ export default function AIAssistantPage() {
                     <Button
                       onClick={handleSendMessage}
                       disabled={!inputText.trim() || isTyping}
-                      className={`w-10 h-10 rounded-full p-0 ${
+                      className={`w-10 h-10 rounded-full p-0 transition-all duration-200 ${
                         inputText.trim() 
                           ? 'bg-gradient-to-br from-red-600 to-red-700 hover:from-red-700 hover:to-red-800' 
                           : 'bg-slate-300'

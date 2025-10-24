@@ -24,9 +24,51 @@ body {
   background: #dc2626;
 }
 
-/* Smooth transitions */
+/* Global smooth transitions for ALL elements - Force with !important */
 * {
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Specific button transitions */
+button {
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Override Tailwind's transition classes */
+.transition-none {
+  transition: none !important;
+}
+
+/* Force transitions on Tailwind classes */
+.hover\:bg-slate-100,
+.hover\:bg-blue-50,
+.hover\:bg-red-50,
+.hover\:bg-green-50,
+.hover\:bg-purple-50,
+.hover\:bg-orange-50,
+.hover\:shadow-lg,
+.hover\:shadow-xl,
+.hover\:shadow-md,
+.hover\:scale-105,
+.hover\:scale-110,
+.hover\:translate-y-1,
+.hover\:border-blue-200,
+.hover\:border-red-200,
+.hover\:text-blue-600,
+.hover\:text-red-600,
+.hover\:text-green-600,
+.hover\:text-purple-600,
+.hover\:text-orange-600 {
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Force transitions on Tailwind transition classes */
+.transition-all,
+.transition-colors,
+.transition-shadow,
+.transition-transform,
+.transition-opacity {
+  transition: all 0.2s ease-in-out !important;
 }
 
 /* Glass morphism effect */
@@ -367,3 +409,7 @@ html {
   }
 }
 
+
+button {
+  cursor: pointer;
+}
