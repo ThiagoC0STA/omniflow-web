@@ -59,14 +59,46 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // If user is not signed in and the current path is not /login, redirect to /login
-  if (!session && req.nextUrl.pathname !== "/login") {
+  // Define public routes that don't require authentication
+  const publicRoutes = ["/login", "/set-password"];
+  const isPublicRoute = publicRoutes.includes(req.nextUrl.pathname);
+
+  // Define admin routes that require admin role
+  const adminRoutes = ["/admin"];
+  const isAdminRoute = adminRoutes.some((route) =>
+    req.nextUrl.pathname.startsWith(route)
+  );
+
+  // Define protected routes that require authentication
+  const protectedRoutes = [
+    "/portal",
+    "/ai-assistant",
+    "/training",
+    "/rfq",
+    "/support",
+    "/manuals",
+  ];
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    req.nextUrl.pathname.startsWith(route)
+  );
+
+  // If user is not signed in and trying to access protected routes, redirect to login
+  if (!session && (isProtectedRoute || isAdminRoute)) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // If user is signed in and the current path is /login, redirect to /portal
+  // If user is signed in and trying to access login page, redirect to portal
   if (session && req.nextUrl.pathname === "/login") {
     return NextResponse.redirect(new URL("/portal", req.url));
+  }
+
+  // Redirect root to appropriate page
+  if (req.nextUrl.pathname === "/") {
+    if (session) {
+      return NextResponse.redirect(new URL("/portal", req.url));
+    } else {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
   }
 
   return response;
