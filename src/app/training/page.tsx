@@ -298,7 +298,7 @@ export default function TrainingPage() {
             <Button
               variant={activeTab === 'courses' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('courses')}
-              className={`px-6 ${activeTab === 'courses' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
+              className={`px-6 ${activeTab === 'courses' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'}`}
             >
               <BookOpen className="h-4 w-4 mr-2" />
               Courses
@@ -306,7 +306,7 @@ export default function TrainingPage() {
             <Button
               variant={activeTab === 'certifications' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('certifications')}
-              className={`px-6 ${activeTab === 'certifications' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}
+              className={`px-6 ${activeTab === 'certifications' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'}`}
             >
               <Award className="h-4 w-4 mr-2" />
               Certifications
