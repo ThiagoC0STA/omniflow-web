@@ -18,8 +18,6 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Bell,
-  Search,
   Menu,
   X,
   ArrowRight,
@@ -65,7 +63,7 @@ const dashboardStats = [
     trendUp: true
   },
   { 
-    label: 'Documents', 
+    label: 'Manuals', 
     value: '15', 
     color: 'text-green-600', 
     bgColor: 'bg-green-50', 
@@ -119,7 +117,7 @@ const menuItems = [
   },
   {
     id: 'view-manuals',
-    title: 'Documentation',
+    title: 'Manuals',
     subtitle: 'Download manuals and guides',
     icon: BookOpen,
     gradient: 'from-orange-500 via-orange-600 to-amber-600',
@@ -155,43 +153,19 @@ export default function PortalPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
+            
               <Logo width={140} height={49} />
             </div>
             
-            <div className="flex items-center space-x-4">
-              <button className="p-2 rounded-lg hover:bg-slate-100 transition-colors relative">
-                <Bell className="h-5 w-5 text-slate-600" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-              </button>
-              
-              <div className="hidden sm:flex items-center space-x-2 bg-slate-50 rounded-lg px-3 py-2">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="bg-transparent border-0 outline-none text-sm text-slate-600 placeholder-slate-400"
-                />
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 rounded-full bg-slate-600 text-white text-xs flex items-center justify-center font-semibold">
-                  {user?.email?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={handleSignOut}
-                  className="flex items-center gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </Button>
-              </div>
+            <div className="flex items-center">
+              <Button
+                variant="outline"
+                onClick={handleSignOut}
+                className="flex items-center gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
             </div>
           </div>
         </div>
@@ -210,12 +184,7 @@ export default function PortalPage() {
                 Here's what's happening with your account today.
               </p>
             </div>
-            <div className="mt-4 sm:mt-0">
-              <Button className="bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white shadow-lg hover:shadow-xl transition-all">
-                <Calendar className="h-4 w-4 mr-2" />
-                Schedule Meeting
-              </Button>
-            </div>
+        
           </div>
         </div>
 
