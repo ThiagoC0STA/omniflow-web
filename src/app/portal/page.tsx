@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Logo } from '@/components/Logo'
 import { useAuthStore } from '@/store/auth-store'
 import { 
@@ -86,7 +84,7 @@ const menuItems = [
     icon: Bot,
     gradient: 'from-blue-500 via-blue-600 to-indigo-600',
     href: '/ai-assistant',
-    badge: 'New',
+    badge: null,
     badgeColor: 'bg-blue-100 text-blue-800'
   },
   {
@@ -116,7 +114,7 @@ const menuItems = [
     icon: Headphones,
     gradient: 'from-red-500 via-red-600 to-rose-600',
     href: '/support',
-    badge: 'Hot',
+    badge: null,
     badgeColor: 'bg-red-100 text-red-800'
   },
   {
@@ -131,35 +129,6 @@ const menuItems = [
   },
 ]
 
-const recentActivities = [
-  {
-    id: 1,
-    type: 'rfq',
-    title: 'New RFQ submitted',
-    description: 'Request for OMNI-7000 system quote',
-    time: '2 hours ago',
-    icon: FileText,
-    color: 'text-green-600'
-  },
-  {
-    id: 2,
-    type: 'support',
-    title: 'Support ticket updated',
-    description: 'Issue #1234 - Installation guidance',
-    time: '4 hours ago',
-    icon: Headphones,
-    color: 'text-blue-600'
-  },
-  {
-    id: 3,
-    type: 'training',
-    title: 'Training completed',
-    description: 'OMNI-3000 Operations Course',
-    time: '1 day ago',
-    icon: GraduationCap,
-    color: 'text-purple-600'
-  },
-]
 
 export default function PortalPage() {
   const router = useRouter()
@@ -267,9 +236,9 @@ export default function PortalPage() {
                         <p className="text-sm text-slate-600">{stat.label}</p>
                       </div>
                     </div>
-                    <div className={`text-sm font-medium ${stat.trendUp ? 'text-green-600' : 'text-red-600'}`}>
+                    {/* <div className={`text-sm font-medium ${stat.trendUp ? 'text-green-600' : 'text-red-600'}`}>
                       {stat.trend}
-                    </div>
+                    </div> */}
                   </div>
                 </CardContent>
               </Card>
@@ -277,14 +246,13 @@ export default function PortalPage() {
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Quick Actions */}
-          <div className="lg:col-span-2">
+        {/* Quick Actions */}
+        <div>
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-slate-900 mb-2">Quick Actions</h2>
               <p className="text-slate-600">Access your most used features</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6">
               {menuItems.map((item) => {
                 const Icon = item.icon
                 return (
@@ -312,11 +280,7 @@ export default function PortalPage() {
                           </div>
                           <div>
                             <h3 className="text-lg font-semibold mb-1">{item.title}</h3>
-                            <p className="text-sm opacity-90 mb-3">{item.subtitle}</p>
-                            <div className="flex items-center text-sm opacity-80 group-hover:opacity-100 transition-opacity">
-                              Get started
-                              <ArrowRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                            </div>
+                            <p className="text-sm opacity-90">{item.subtitle}</p>
                           </div>
                         </div>
                       </div>
@@ -326,85 +290,6 @@ export default function PortalPage() {
               })}
             </div>
           </div>
-
-          {/* Recent Activity */}
-          <div>
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-slate-900 mb-2">Recent Activity</h2>
-              <p className="text-slate-600">Your latest updates</p>
-            </div>
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-6">
-                <div className="h-[400px] overflow-y-auto">
-                  <div className="space-y-4">
-                    {recentActivities.map((activity) => {
-                      const Icon = activity.icon
-                      return (
-                        <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                          <div className={`p-2 rounded-lg bg-slate-100 ${activity.color}`}>
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900">{activity.title}</p>
-                            <p className="text-sm text-slate-600 truncate">{activity.description}</p>
-                            <p className="text-xs text-slate-500 mt-1">{activity.time}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-100">
-                  <Button variant="outline" className="w-full text-sm">
-                    View All Activity
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Additional Resources */}
-        <div className="mt-8">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-slate-900 mb-2">Additional Resources</h2>
-            <p className="text-slate-600">Helpful links and information</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Download className="h-6 w-6 text-blue-600" />
-                </div>
-                <h3 className="font-semibold text-slate-900 mb-2">Download Center</h3>
-                <p className="text-sm text-slate-600 mb-4">Get the latest software and drivers</p>
-                <Button variant="outline" size="sm">Browse Files</Button>
-              </CardContent>
-            </Card>
-            
-            <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <MessageSquare className="h-6 w-6 text-green-600" />
-                </div>
-                <h3 className="font-semibold text-slate-900 mb-2">Community Forum</h3>
-                <p className="text-sm text-slate-600 mb-4">Connect with other users</p>
-                <Button variant="outline" size="sm">Join Discussion</Button>
-              </CardContent>
-            </Card>
-            
-            <Card className="border-0 shadow-sm hover:shadow-lg transition-all">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Shield className="h-6 w-6 text-purple-600" />
-                </div>
-                <h3 className="font-semibold text-slate-900 mb-2">Security Center</h3>
-                <p className="text-sm text-slate-600 mb-4">Manage your account security</p>
-                <Button variant="outline" size="sm">Security Settings</Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
       </div>
     </div>
   )

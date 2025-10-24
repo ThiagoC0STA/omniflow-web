@@ -166,11 +166,10 @@ export default function AdminPage() {
               <Button
                 variant="outline"
                 onClick={() => router.push('/portal')}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 p-3"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to Portal
-              </Button>
+             </Button>
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Shield className="h-6 w-6 text-purple-600" />

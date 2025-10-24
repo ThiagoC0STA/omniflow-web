@@ -147,10 +147,10 @@ export default function RFQPage() {
               <Button
                 variant="outline"
                 onClick={() => router.push('/portal')}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 p-3"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to Portal
+
               </Button>
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-green-100 rounded-lg">

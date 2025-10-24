@@ -147,31 +147,31 @@ export default function AIAssistantPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/50 shadow-sm sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center space-x-4">
+      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/50 shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-6">
+            <div className="flex items-center space-x-6">
               <Button
                 variant="outline"
                 onClick={() => router.push('/portal')}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 px-3"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to Portal
+
               </Button>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Bot className="h-6 w-6 text-blue-600" />
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <Bot className="h-7 w-7 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-semibold text-slate-900">AI Assistant</h1>
+                  <h1 className="text-2xl font-semibold text-slate-900">AI Assistant</h1>
                   <p className="text-sm text-slate-600">Powered by Chatbase</p>
                 </div>
               </div>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
+            <div className="flex items-center space-x-3">
+              <Badge variant="secondary" className="bg-green-100 text-green-800 px-3 py-1">
                 <Sparkles className="h-3 w-3 mr-1" />
                 Online
               </Badge>
@@ -179,7 +179,7 @@ export default function AIAssistantPage() {
                 variant="outline"
                 size="sm"
                 onClick={clearChat}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 px-4 py-2"
               >
                 <RefreshCw className="h-4 w-4" />
                 Clear Chat
@@ -190,37 +190,37 @@ export default function AIAssistantPage() {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-200px)]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-200px)]">
           {/* Chat Area */}
-          <div className="lg:col-span-3">
+          <div className="flex-1 min-w-0">
             <Card className="h-full border-0 shadow-sm">
               <CardContent className="p-0 h-full flex flex-col">
                 {/* Messages */}
-                <div className="flex-1 p-6 overflow-y-auto">
-                  <div className="space-y-6">
+                <div className="flex-1 p-8 overflow-y-auto">
+                  <div className="space-y-8 max-w-5xl mx-auto">
                     {messages.map((message) => (
                       <div
                         key={message.id}
                         className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
                       >
-                        <div className={`flex max-w-[80%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                        <div className={`flex max-w-[85%] ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
                             message.isUser 
-                              ? 'bg-slate-600 text-white ml-3' 
-                              : 'bg-blue-100 text-blue-600 mr-3'
+                              ? 'bg-slate-600 text-white ml-4' 
+                              : 'bg-blue-100 text-blue-600 mr-4'
                           }`}>
-                            {message.isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                            {message.isUser ? <User className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
                           </div>
                           <div className={`flex-1 ${message.isUser ? 'text-right' : 'text-left'}`}>
-                            <div className={`inline-block p-4 rounded-2xl ${
+                            <div className={`inline-block p-5 rounded-2xl shadow-sm ${
                               message.isUser
                                 ? 'bg-slate-600 text-white'
                                 : 'bg-white border border-slate-200 text-slate-900'
                             }`}>
                               <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
                             </div>
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex items-center gap-2 mt-3">
                               <span className="text-xs text-slate-500">
                                 {message.timestamp.toLocaleTimeString()}
                               </span>
@@ -230,21 +230,21 @@ export default function AIAssistantPage() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => copyToClipboard(message.text)}
-                                    className="h-6 w-6 p-0 hover:bg-slate-100"
+                                    className="h-7 w-7 p-0 hover:bg-slate-100"
                                   >
                                     <Copy className="h-3 w-3" />
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-green-100 hover:text-green-600"
+                                    className="h-7 w-7 p-0 hover:bg-green-100 hover:text-green-600"
                                   >
                                     <ThumbsUp className="h-3 w-3" />
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+                                    className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600"
                                   >
                                     <ThumbsDown className="h-3 w-3" />
                                   </Button>
@@ -258,12 +258,12 @@ export default function AIAssistantPage() {
                     
                     {isTyping && (
                       <div className="flex justify-start">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Bot className="h-4 w-4 text-blue-600" />
+                        <div className="flex items-center space-x-4">
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Bot className="h-5 w-5 text-blue-600" />
                           </div>
-                          <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                            <div className="flex items-center space-x-2">
+                          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                            <div className="flex items-center space-x-3">
                               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                               <span className="text-sm text-slate-600">AI is thinking...</span>
                             </div>
@@ -277,23 +277,23 @@ export default function AIAssistantPage() {
                 </div>
 
                 {/* Input Area */}
-                <div className="border-t border-slate-200 p-4">
-                  <div className="flex items-end space-x-3">
+                <div className="border-t border-slate-200 p-6">
+                  <div className="flex items-end space-x-4 max-w-5xl mx-auto">
                     <div className="flex-1">
                       <Input
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyPress={handleKeyPress}
                         placeholder="Type your message here..."
-                        className="min-h-[44px] resize-none border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+                        className="min-h-[52px] resize-none border-slate-200 focus:border-blue-500 focus:ring-blue-500 text-base"
                       />
                     </div>
                     <Button
                       onClick={handleSendMessage}
                       disabled={!inputText.trim() || isTyping}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 h-[52px]"
                     >
-                      <Send className="h-4 w-4" />
+                      <Send className="h-5 w-5" />
                     </Button>
                   </div>
                 </div>
@@ -302,15 +302,15 @@ export default function AIAssistantPage() {
           </div>
 
           {/* Quick Replies Sidebar */}
-          <div className="lg:col-span-1">
+          <div className="w-full lg:w-80 flex-shrink-0">
             <Card className="h-full border-0 shadow-sm">
-              <CardContent className="p-6">
+              <CardContent className="p-6 h-full flex flex-col">
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">Quick Replies</h3>
                   <p className="text-sm text-slate-600">Click to ask common questions</p>
                 </div>
                 
-                <div className="space-y-3">
+                <div className="flex-1 space-y-3 overflow-y-auto">
                   {quickReplies.map((reply) => {
                     const Icon = reply.icon
                     return (
@@ -318,15 +318,15 @@ export default function AIAssistantPage() {
                         key={reply.id}
                         variant="outline"
                         onClick={() => handleQuickReply(reply)}
-                        className="w-full justify-start h-auto p-3 text-left hover:bg-blue-50 hover:border-blue-200 transition-all"
+                        className="w-full justify-start h-auto p-4 text-left hover:bg-blue-50 hover:border-blue-200 transition-all"
                       >
-                        <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 p-1 bg-blue-100 rounded">
+                        <div className="flex items-start space-x-3 w-full">
+                          <div className="flex-shrink-0 p-2 bg-blue-100 rounded-lg">
                             <Icon className="h-4 w-4 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900">{reply.text}</p>
-                            <Badge variant="secondary" className="mt-1 text-xs">
+                            <p className="text-sm font-medium text-slate-900 leading-relaxed break-words">{reply.text}</p>
+                            <Badge variant="secondary" className="mt-2 text-xs">
                               {reply.category}
                             </Badge>
                           </div>
@@ -336,15 +336,6 @@ export default function AIAssistantPage() {
                   })}
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-slate-200">
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-                      <Sparkles className="h-6 w-6 text-white" />
-                    </div>
-                    <h4 className="font-semibold text-slate-900 mb-1">AI Powered</h4>
-                    <p className="text-xs text-slate-600">Powered by advanced AI technology</p>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
