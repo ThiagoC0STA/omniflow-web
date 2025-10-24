@@ -197,7 +197,7 @@ export default function AIAssistantPage() {
             <Card className="h-full border-0 shadow-sm">
               <CardContent className="p-0 h-full flex flex-col">
                 {/* Messages */}
-                <ScrollArea className="flex-1 p-6">
+                <div className="flex-1 p-6 overflow-y-auto">
                   <div className="space-y-6">
                     {messages.map((message) => (
                       <div
@@ -274,7 +274,7 @@ export default function AIAssistantPage() {
                     
                     <div ref={messagesEndRef} />
                   </div>
-                </ScrollArea>
+                </div>
 
                 {/* Input Area */}
                 <div className="border-t border-slate-200 p-4">

@@ -345,18 +345,15 @@ export default function AdminPage() {
             {/* Users List */}
             <Card className="border-0 shadow-sm">
               <CardContent className="p-0">
-                <ScrollArea className="h-[600px]">
+                <div className="h-[600px] overflow-y-auto">
                   <div className="space-y-0">
                     {filteredUsers.map((user, index) => (
                       <div key={user.id} className={`p-6 ${index !== filteredUsers.length - 1 ? 'border-b border-slate-100' : ''}`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <Avatar className="h-12 w-12">
-                              <AvatarImage src={user.avatar} alt={user.name} />
-                              <AvatarFallback className="bg-purple-100 text-purple-600">
-                                {user.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
+                            <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-semibold">
+                              {user.name.split(' ').map(n => n[0]).join('')}
+                            </div>
                             
                             <div className="flex-1">
                               <div className="flex items-center space-x-2 mb-1">
@@ -398,7 +395,7 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </div>

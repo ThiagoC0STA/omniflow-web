@@ -211,12 +211,9 @@ export default function PortalPage() {
               </div>
               
               <div className="flex items-center space-x-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
-                  <AvatarFallback className="bg-slate-600 text-white text-xs">
-                    {user?.email?.charAt(0).toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="h-8 w-8 rounded-full bg-slate-600 text-white text-xs flex items-center justify-center font-semibold">
+                  {user?.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
                 <Button
                   variant="outline"
                   onClick={handleSignOut}
@@ -338,7 +335,7 @@ export default function PortalPage() {
             </div>
             <Card className="border-0 shadow-sm">
               <CardContent className="p-6">
-                <ScrollArea className="h-[400px]">
+                <div className="h-[400px] overflow-y-auto">
                   <div className="space-y-4">
                     {recentActivities.map((activity) => {
                       const Icon = activity.icon
@@ -356,7 +353,7 @@ export default function PortalPage() {
                       )
                     })}
                   </div>
-                </ScrollArea>
+                </div>
                 <div className="mt-4 pt-4 border-t border-slate-100">
                   <Button variant="outline" className="w-full text-sm">
                     View All Activity
