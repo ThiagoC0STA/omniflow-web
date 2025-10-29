@@ -75,6 +75,9 @@ function ResetPasswordHandler() {
         // NOTE: For password reset, we need to redirect to set-password screen
         const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
         
+        console.log("🔍 Refresh token from hash:", hashParams.get("refresh_token"));
+        console.log("🔍 Refresh token found:", refreshToken);
+        
         const params = new URLSearchParams({
           token_hash: token,  // Use token_hash for mobile app
           type: type || 'recovery',
@@ -85,12 +88,15 @@ function ResetPasswordHandler() {
         }
         
         if (refreshToken) {
+          console.log("🔍 Adding refresh_token to deep link");
           params.append("refresh_token", refreshToken);
+        } else {
+          console.log("🔍 No refresh_token found, will cause error");
         }
         
         const deepLink = `omniflow://set-password?${params.toString()}`;
         
-        console.log("Mobile device detected - attempting deep link:", deepLink.substring(0, 80) + "...");
+        console.log("Mobile device detected - attempting deep link:", deepLink.substring(0, 100) + "...");
         
         // Try deep link first
         window.location.href = deepLink;
