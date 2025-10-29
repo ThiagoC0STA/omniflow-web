@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
+import { useEffect, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 function ResetPasswordHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [showWebForm, setShowWebForm] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     // Extract token and other params from Supabase's redirect URL
@@ -15,17 +21,19 @@ function ResetPasswordHandler() {
     const error = searchParams.get("error");
     const errorCode = searchParams.get("error_code");
     
-    // ALWAYS try to redirect to mobile app first (deep link)
-    // If the app is installed, it will open. If not, the browser will stay on web.
-    // The fallback timeout (3s) will load the web page if app doesn't open
-    const isMobileApp = true; // Try app first for all mobile devices
+    // Detect if this is likely a mobile device
+    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(window.navigator.userAgent);
+    
+    // Only redirect to app if we're on a mobile device
+    // Otherwise, show the web form
+    const shouldRedirectToApp = isMobileDevice;
 
     // If there's an error, handle differently for web vs mobile
     if (error || errorCode) {
       const errorDescription = searchParams.get("error_description") || "This link is invalid or has expired";
       const errorMsg = decodeURIComponent(errorDescription.replace(/\+/g, " "));
       
-      if (isMobileApp) {
+      if (shouldRedirectToApp) {
         // Build the deep link with error params for mobile app
         const errorUrl = `omniflow://set-password?error=${error}&error_code=${errorCode}&error_description=${encodeURIComponent(errorMsg)}${email ? `&email=${email}` : ""}`;
         console.log("Mobile app detected - redirecting to app with error:", errorUrl);
@@ -40,7 +48,7 @@ function ResetPasswordHandler() {
 
     // If we have a token, handle web vs mobile
     if (token) {
-      if (isMobileApp) {
+      if (shouldRedirectToApp) {
         // Redirect to mobile app with deep link
         // NOTE: For password reset, we need to redirect to set-password screen
         const params = new URLSearchParams({
@@ -54,19 +62,18 @@ function ResetPasswordHandler() {
         
         const deepLink = `omniflow://set-password?${params.toString()}`;
         
-        console.log("Mobile app detected - redirecting to app with token:", deepLink.substring(0, 80) + "...");
+        console.log("Mobile device detected - attempting deep link:", deepLink.substring(0, 80) + "...");
         
         // Try deep link first
         window.location.href = deepLink;
         
-        // Fallback: if deep link doesn't work in 3 seconds, show instructions
+        // Fallback: if deep link doesn't work in 2 seconds, show web form
         setTimeout(() => {
-          const fallbackUrl = `/set-password?${params.toString()}`;
-          console.log("Deep link fallback - opening web page:", fallbackUrl);
-          window.location.href = fallbackUrl;
-        }, 3000);
+          console.log("Deep link didn't open app, showing web form to set password");
+          setShowWebForm(true);
+        }, 2000);
       } else {
-        // For web, redirect to set-password page
+        // For web desktop, redirect to set-password page
         const params = new URLSearchParams({
           token,
           type,
@@ -76,19 +83,167 @@ function ResetPasswordHandler() {
           params.append("email", email);
         }
         
-        console.log("Web browser detected - redirecting to set-password page");
+        console.log("Desktop browser detected - redirecting to set-password page");
         router.push(`/set-password?${params.toString()}`);
       }
     } else {
       // No token, redirect based on platform
-      if (isMobileApp) {
+      if (shouldRedirectToApp) {
         window.location.href = "omniflow://login";
       } else {
         router.push("/login");
       }
     }
-  }, [router, searchParams]);
+  }, [router, searchParams, showWebForm]);
 
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+
+    if (password !== confirmPassword) {
+      setMessage({ type: 'error', text: 'Passwords do not match.' });
+      return;
+    }
+    if (password.length < 6) {
+      setMessage({ type: 'error', text: 'Password must be at least 6 characters long.' });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+
+      if (error) throw error;
+
+      setMessage({ type: 'success', text: 'Password updated successfully! Redirecting to login...' });
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
+    } catch (error) {
+      console.error('Error setting password:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to set password.';
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // If showing web form
+  if (showWebForm) {
+    return (
+      <div style={{ 
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(to bottom right, #f5f5f5, #ffffff)",
+        padding: "20px"
+      }}>
+        <div style={{
+          maxWidth: "400px",
+          width: "100%",
+          background: "white",
+          borderRadius: "16px",
+          padding: "40px",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.1)"
+        }}>
+          <h1 style={{ 
+            fontSize: "24px", 
+            fontWeight: "bold", 
+            marginBottom: "8px",
+            color: "#111827"
+          }}>Set Your Password</h1>
+          <p style={{ 
+            fontSize: "14px", 
+            color: "#6b7280", 
+            marginBottom: "32px" 
+          }}>Create a secure password for your account</p>
+
+          <form onSubmit={handleSetPassword}>
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ 
+                display: "block", 
+                fontSize: "14px", 
+                fontWeight: "600", 
+                marginBottom: "8px",
+                color: "#374151"
+              }}>New Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "16px"
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ 
+                display: "block", 
+                fontSize: "14px", 
+                fontWeight: "600", 
+                marginBottom: "8px",
+                color: "#374151"
+              }}>Confirm Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "16px"
+                }}
+              />
+            </div>
+
+            {message && (
+              <div style={{
+                padding: "12px",
+                borderRadius: "8px",
+                marginBottom: "20px",
+                background: message.type === 'success' ? "#d1fae5" : "#fee2e2",
+                color: message.type === 'success' ? "#065f46" : "#991b1b",
+                fontSize: "14px"
+              }}>
+                {message.text}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "12px",
+                background: loading ? "#9ca3af" : "#dc2626",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "16px",
+                fontWeight: "600",
+                cursor: loading ? "not-allowed" : "pointer"
+              }}
+            >
+              {loading ? "Setting Password..." : "Set Password"}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Default redirect message
   return (
     <div style={{ 
       display: "flex", 
@@ -130,4 +285,3 @@ export default function ResetPasswordPage() {
     </Suspense>
   );
 }
-
