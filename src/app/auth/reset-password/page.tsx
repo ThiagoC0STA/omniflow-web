@@ -15,11 +15,16 @@ function ResetPasswordHandler() {
 
   useEffect(() => {
     // Extract token and other params from Supabase's redirect URL
+    console.log('🔍 ALL SEARCH PARAMS:', Array.from(searchParams.entries()));
+    console.log('🔍 WINDOW LOCATION:', window.location.href);
+    
     const token = searchParams.get("token_hash") || searchParams.get("token") || searchParams.get("access_token");
     const email = searchParams.get("email");
     const type = searchParams.get("type") || "recovery";
     const error = searchParams.get("error");
     const errorCode = searchParams.get("error_code");
+    
+    console.log('🔍 EXTRACTED VALUES:', { token: token?.substring(0, 20), email, type, error, errorCode });
     
     // Detect if this is likely a mobile device
     const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(window.navigator.userAgent);
