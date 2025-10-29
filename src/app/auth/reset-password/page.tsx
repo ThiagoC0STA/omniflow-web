@@ -15,14 +15,20 @@ function ResetPasswordHandler() {
 
   useEffect(() => {
     // Extract token and other params from Supabase's redirect URL
+    // Supabase sends token in HASH, not query params!
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    
     console.log('🔍 ALL SEARCH PARAMS:', Array.from(searchParams.entries()));
+    console.log('🔍 HASH PARAMS:', Array.from(hashParams.entries()));
     console.log('🔍 WINDOW LOCATION:', window.location.href);
     
-    const token = searchParams.get("token_hash") || searchParams.get("token") || searchParams.get("access_token");
-    const email = searchParams.get("email");
-    const type = searchParams.get("type") || "recovery";
-    const error = searchParams.get("error");
-    const errorCode = searchParams.get("error_code");
+    // Get from hash first (Supabase sends it here), then fallback to query params
+    const token = hashParams.get("access_token") || hashParams.get("token_hash") || 
+                  searchParams.get("token_hash") || searchParams.get("token");
+    const email = hashParams.get("email") || searchParams.get("email");
+    const type = hashParams.get("type") || searchParams.get("type") || "recovery";
+    const error = hashParams.get("error") || searchParams.get("error");
+    const errorCode = hashParams.get("error_code") || searchParams.get("error_code");
     
     console.log('🔍 EXTRACTED VALUES:', { token: token?.substring(0, 20), email, type, error, errorCode });
     
