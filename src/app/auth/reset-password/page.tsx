@@ -25,10 +25,21 @@ function ResetPasswordHandler() {
     // Get from hash first (Supabase sends it here), then fallback to query params
     const token = hashParams.get("access_token") || hashParams.get("token_hash") || 
                   searchParams.get("token_hash") || searchParams.get("token");
-    const email = hashParams.get("email") || searchParams.get("email");
+    let email = hashParams.get("email") || searchParams.get("email");
     const type = hashParams.get("type") || searchParams.get("type") || "recovery";
     const error = hashParams.get("error") || searchParams.get("error");
     const errorCode = hashParams.get("error_code") || searchParams.get("error_code");
+    
+    // If email is not in params, try to extract from JWT token
+    if (!email && token && token.includes('.')) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        email = payload.email;
+        console.log('🔍 Extracted email from token:', email);
+      } catch (e) {
+        console.log('🔍 Could not extract email from token');
+      }
+    }
     
     console.log('🔍 EXTRACTED VALUES:', { token: token?.substring(0, 20), email, type, error, errorCode });
     
