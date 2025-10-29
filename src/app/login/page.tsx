@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/auth-store'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Shield, Users, Zap, BookOpen, CheckCircle, ArrowRight } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -40,29 +41,13 @@ export default function LoginPage() {
 
       console.log('Login successful:', data)
 
-      // Simple redirect without complex profile fetching
       if (data.user) {
-        console.log('User found, checking password pattern...')
-        console.log('Password:', password)
-        console.log('Password pattern test:', /Aa![0-9]{3,}$/.test(password))
-        
         // Check if password needs to be changed
         if (/Aa![0-9]{3,}$/.test(password)) {
-          console.log('Redirecting to set-password...')
           router.push('/set-password')
         } else {
-          console.log('Redirecting to portal...')
-          // Force redirect with window.location as fallback
-          setTimeout(() => {
-            router.push('/portal')
-            // Fallback redirect
-            setTimeout(() => {
-              window.location.href = '/portal'
-            }, 1000)
-          }, 100)
+          router.push('/portal')
         }
-      } else {
-        console.log('No user found in response')
       }
     } catch (error: any) {
       console.error('Login error:', error)
@@ -92,117 +77,197 @@ export default function LoginPage() {
     }
   }
 
+  const features = [
+    {
+      icon: Shield,
+      title: 'Secure Access',
+      description: 'Enterprise-grade security for your corporate data',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50'
+    },
+    {
+      icon: Zap,
+      title: 'AI Assistant',
+      description: 'Get instant help with technical questions',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50'
+    },
+    {
+      icon: BookOpen,
+      title: 'Resources',
+      description: 'Access manuals, training, and documentation',
+      color: 'text-green-600',
+      bgColor: 'bg-green-50'
+    },
+    {
+      icon: Users,
+      title: 'Support',
+      description: 'Direct access to our expert support team',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50'
+    }
+  ]
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <Logo width={200} height={80} className="mx-auto" />
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Welcome to OmniFlow
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Sign in to access your client portal
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmM2Y0ZjYiIGZpbGwtb3BhY2l0eT0iMC40Ij48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-40"></div>
+      
+      <div className="relative min-h-screen flex">
+        {/* Left Side - Features */}
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 to-slate-800/50"></div>
+          <div className="relative z-10 flex flex-col justify-center px-12 py-16">
+            <div className="mb-8">
+              <Logo width={200} height={70} className="text-white mb-6" />
+              <h1 className="text-4xl font-bold text-white leading-tight mb-4">
+                Welcome to Your
+                <span className="block text-slate-200">Corporate Portal</span>
+              </h1>
+              <p className="text-xl text-slate-300 leading-relaxed">
+                Access training, support, and resources designed exclusively for our corporate clients.
+              </p>
+            </div>
+            
+            <div className="space-y-6">
+              {features.map((feature, index) => {
+                const Icon = feature.icon
+                return (
+                  <div key={index} className="flex items-start space-x-4 group">
+                    <div className={`p-3 rounded-xl ${feature.bgColor} group-hover:scale-110 transition-transform duration-200`}>
+                      <Icon className={`w-6 h-6 ${feature.color}`} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-1">{feature.title}</h3>
+                      <p className="text-slate-300">{feature.description}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          
+          {/* Decorative Elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
-            <CardDescription className="text-center">
-              Enter your credentials to access your account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
+        {/* Right Side - Login Form */}
+        <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-8 py-12">
+          <div className="mx-auto w-full max-w-md">
+            {/* Mobile Logo */}
+            <div className="lg:hidden text-center mb-8">
+              <Logo width={180} height={63} className="mx-auto" />
+            </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
+            <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
+              <CardHeader className="space-y-2 text-center pb-8">
+                <CardTitle className="text-2xl font-bold text-slate-900">
+                  Sign In
+                </CardTitle>
+                <CardDescription className="text-slate-600">
+                  Enter your credentials to access your account
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-6">
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="text-sm font-medium text-slate-700">
+                      Email Address
+                    </label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="h-12 border-slate-200 focus:border-slate-400 focus:ring-slate-400"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="password" className="text-sm font-medium text-slate-700">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="h-12 pr-12 border-slate-200 focus:border-slate-400 focus:ring-slate-400"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                    disabled={loading}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Signing in...
+                      </>
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <>
+                        Sign In
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
                     )}
-                  </button>
-                </div>
-              </div>
+                  </Button>
+                </form>
 
-              {error && (
-                <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">
-                  {error}
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-
-              <div className="text-center space-y-2">
-                <button
-                  type="button"
-                  className="text-sm text-red-600 hover:text-red-700 font-medium"
-                >
-                  Forgot your password?
-                </button>
-                
-                <div className="pt-2">
+                <div className="text-center space-y-3">
                   <button
                     type="button"
-                    onClick={createTestUser}
-                    className="text-xs text-gray-500 hover:text-gray-700 underline"
+                    className="text-sm text-slate-600 hover:text-slate-800 font-medium transition-colors"
                   >
-                    Create test user (test@example.com / password123)
+                    Forgot your password?
                   </button>
+                  
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={createTestUser}
+                      className="text-xs text-slate-500 hover:text-slate-700 underline transition-colors"
+                    >
+                      Create test user (test@example.com / password123)
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        <div className="text-center">
-          <p className="text-sm text-gray-500">
-            Contact your administrator to get access
-          </p>
+            <div className="mt-8 text-center">
+              <p className="text-sm text-slate-500">
+                Contact your administrator to get access
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
