@@ -73,6 +73,8 @@ function ResetPasswordHandler() {
       if (shouldRedirectToApp) {
         // Redirect to mobile app with deep link
         // NOTE: For password reset, we need to redirect to set-password screen
+        const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
+        
         const params = new URLSearchParams({
           token_hash: token,  // Use token_hash for mobile app
           type: type || 'recovery',
@@ -80,6 +82,10 @@ function ResetPasswordHandler() {
         
         if (email) {
           params.append("email", email);
+        }
+        
+        if (refreshToken) {
+          params.append("refresh_token", refreshToken);
         }
         
         const deepLink = `omniflow://set-password?${params.toString()}`;
