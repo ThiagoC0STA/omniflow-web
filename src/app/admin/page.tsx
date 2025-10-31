@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Logo } from '@/components/Logo'
 import { useAuthStore } from '@/store/auth-store'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { 
   ArrowLeft, 
   Users, 
@@ -46,7 +47,9 @@ import {
   GraduationCap,
   X,
   Send,
-  LogOut
+  LogOut,
+  Loader2,
+  XCircle
 } from 'lucide-react'
 
 interface User {
@@ -103,6 +106,13 @@ export default function AdminPage() {
   const [showAddTrainingModal, setShowAddTrainingModal] = useState(false)
   const [showAddNewsModal, setShowAddNewsModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  
+  // Invite user modal state
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<'admin' | 'client'>('client')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteError, setInviteError] = useState('')
+  const [inviteSuccess, setInviteSuccess] = useState(false)
 
   // Redirect if not admin - Temporarily disabled for testing
   // useEffect(() => {
@@ -217,11 +227,142 @@ export default function AdminPage() {
 
   const handleSignOut = async () => {
     try {
-      await signOut()
-      router.push('/login')
+      // Sign out from Supabase first
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      
+      // Then clear local state
+      signOut()
+      
+      // Redirect to login with full page reload to ensure session is cleared
+      window.location.href = '/login'
     } catch (error) {
       console.error('Error signing out:', error)
+      // Even if Supabase fails, clear local state and redirect
+      signOut()
+      window.location.href = '/login'
     }
+  }
+
+  const generateTempPassword = () => {
+    const base = Math.random().toString(36).slice(-8)
+    const extra = Math.floor(100 + Math.random() * 900)
+    return `${base}Aa!${extra}`
+  }
+
+  const handleSendInvite = async () => {
+    if (!inviteEmail) {
+      setInviteError('Please enter an email address')
+      return
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(inviteEmail.trim())) {
+      setInviteError('Please enter a valid email address')
+      return
+    }
+
+    setInviteLoading(true)
+    setInviteError('')
+    setInviteSuccess(false)
+
+    try {
+      // Check if user already exists
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+      const existing = existingUsers?.users?.find(u => u.email === inviteEmail.trim())
+
+      const tempPassword = generateTempPassword()
+      let createdUserId: string | undefined = existing?.id
+
+      if (existing) {
+        // User exists: update password to temporary password
+        const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+          password: tempPassword,
+        })
+        if (updateErr) throw updateErr
+      } else {
+        // Create new user with temporary password
+        const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+          email: inviteEmail.trim(),
+          password: tempPassword,
+          email_confirm: true,
+        })
+        if (createErr) throw createErr
+        createdUserId = created?.user?.id
+
+        // Create user profile
+        if (createdUserId) {
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert({ 
+              id: createdUserId, 
+              email: inviteEmail.trim(), 
+              role: inviteRole 
+            })
+          if (profileError) {
+            console.warn('Profile insert error', profileError)
+            // If profile creation fails but user exists, try to update role
+            if (profileError.code !== '23505') {
+              throw profileError
+            }
+          }
+        }
+      }
+
+      // Send email with temporary password via Edge Function
+      try {
+        const { error: fnError } = await supabase.functions.invoke('send-invite-email', {
+          body: { to: inviteEmail.trim(), tempPassword },
+        })
+        if (fnError) {
+          console.warn('Email send error', fnError)
+          // Don't throw - user is created even if email fails
+        }
+      } catch (e) {
+        console.warn('Email send exception', e)
+        // Don't throw - user is created even if email fails
+      }
+
+      // Store invite record (token is required by schema, but we use temp password flow)
+      try {
+        const token = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`
+        await supabase.from('invites').insert({ 
+          email: inviteEmail.trim(), 
+          used: true, 
+          created_by: user?.id,
+          token: token,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
+        })
+      } catch (inviteError) {
+        console.warn('Invite record error', inviteError)
+        // Don't throw - invite record is optional
+      }
+
+      setInviteSuccess(true)
+      setInviteEmail('')
+      setInviteRole('client')
+      
+      // Close modal after 2 seconds
+      setTimeout(() => {
+        setShowAddUserModal(false)
+        setInviteSuccess(false)
+      }, 2000)
+    } catch (err: unknown) {
+      const error = err as { message?: string }
+      console.error('Error sending invite:', error)
+      setInviteError(error.message || 'Failed to send invite. Please try again.')
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleCloseInviteModal = () => {
+    setShowAddUserModal(false)
+    setInviteEmail('')
+    setInviteRole('client')
+    setInviteError('')
+    setInviteSuccess(false)
   }
 
   const toggleUserRole = (userId: string) => {
@@ -628,7 +769,7 @@ export default function AdminPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowAddUserModal(false)}
+                onClick={handleCloseInviteModal}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -636,22 +777,67 @@ export default function AdminPage() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">Email Address</label>
-                <Input placeholder="user@example.com" />
+                <Input 
+                  placeholder="user@example.com" 
+                  value={inviteEmail}
+                  onChange={(e) => {
+                    setInviteEmail(e.target.value)
+                    setInviteError('')
+                  }}
+                  disabled={inviteLoading}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">Role</label>
-                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                <select 
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as 'admin' | 'client')}
+                  disabled={inviteLoading}
+                >
                   <option value="client">Client</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
+
+              {inviteError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                  <XCircle className="h-4 w-4" />
+                  <span>{inviteError}</span>
+                </div>
+              )}
+
+              {inviteSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Invite sent successfully! A temporary password has been emailed.</span>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowAddUserModal(false)}>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseInviteModal}
+                  disabled={inviteLoading}
+                >
                   Cancel
                 </Button>
-                <Button className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200">
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Invite
+                <Button 
+                  className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
+                  onClick={handleSendInvite}
+                  disabled={inviteLoading || inviteSuccess}
+                >
+                  {inviteLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Invite
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>

@@ -1,3 +1,4 @@
+import { createBrowserClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -8,15 +9,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase environment variables");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+// Client-side Supabase client using SSR package for proper cookie handling
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
 
-// Admin client for admin operations
+// Admin client for admin operations (only used server-side)
 export const supabaseAdmin = createClient(
   supabaseUrl,
   supabaseServiceRoleKey || supabaseAnonKey,

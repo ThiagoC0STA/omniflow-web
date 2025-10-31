@@ -84,8 +84,15 @@ export function useAuth() {
   };
 
   const resetPassword = async (email: string) => {
+    // Use the auth/reset-password route which handles Supabase redirects
+    const redirectUrl = process.env.NEXT_PUBLIC_APP_URL
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`
+      : `${
+          typeof window !== "undefined" ? window.location.origin : ""
+        }/auth/reset-password`;
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`,
+      redirectTo: redirectUrl,
     });
 
     if (error) {

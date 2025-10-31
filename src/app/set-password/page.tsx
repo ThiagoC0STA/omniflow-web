@@ -23,16 +23,39 @@ function SetPasswordContent() {
   const { setMustChangePassword } = useAuthStore()
 
   useEffect(() => {
-    const token = searchParams.get('token')
-    const type = searchParams.get('type')
-    const email = searchParams.get('email')
+    // Check both hash (from direct Supabase redirect) and query params
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const token = searchParams.get('access_token') || hashParams.get('access_token') ||
+                  searchParams.get('token') || hashParams.get('token') ||
+                  searchParams.get('token_hash') || hashParams.get('token_hash');
+    const type = searchParams.get('type') || hashParams.get('type');
+    const email = searchParams.get('email') || hashParams.get('email');
+
+    // If we have a token but no type, assume it's recovery
+    if (token && !type) {
+      // Redirect to set-password with proper params if coming from hash
+      if (hashParams.get('access_token')) {
+        const params = new URLSearchParams({
+          access_token: token,
+          type: 'recovery',
+        });
+        if (email) params.append('email', email);
+        const refreshToken = hashParams.get('refresh_token');
+        if (refreshToken) params.append('refresh_token', refreshToken);
+        router.replace(`/set-password?${params.toString()}`);
+        return;
+      }
+    }
 
     if (type === 'recovery' && token) {
       setMessage({ type: 'info', text: 'Please set your new password to complete the recovery process.' })
     } else if (type === 'invite' && token) {
       setMessage({ type: 'info', text: 'Welcome! Please set your password to activate your account.' })
+    } else if (!token) {
+      // No token found, redirect to login
+      router.push('/login?error=Invalid or expired reset link')
     }
-  }, [searchParams])
+  }, [searchParams, router])
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault()

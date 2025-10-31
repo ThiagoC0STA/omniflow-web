@@ -15,7 +15,7 @@ function ResetPasswordHandler() {
 
   useEffect(() => {
     // Extract token and other params from Supabase's redirect URL
-    // Supabase sends token in HASH, not query params!
+    // Supabase sends token in HASH, but we also check query params (from page.tsx redirect)
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
     console.log('🔍 ALL SEARCH PARAMS:', Array.from(searchParams.entries()));
@@ -23,12 +23,14 @@ function ResetPasswordHandler() {
     console.log('🔍 WINDOW LOCATION:', window.location.href);
     
     // Get from hash first (Supabase sends it here), then fallback to query params
-    const token = hashParams.get("access_token") || hashParams.get("token_hash") || 
-                  searchParams.get("token_hash") || searchParams.get("token");
+    const token = hashParams.get("access_token") || searchParams.get("access_token") ||
+                  hashParams.get("token_hash") || searchParams.get("token_hash") || 
+                  searchParams.get("token");
     let email = hashParams.get("email") || searchParams.get("email");
     const type = hashParams.get("type") || searchParams.get("type") || "recovery";
     const error = hashParams.get("error") || searchParams.get("error");
     const errorCode = hashParams.get("error_code") || searchParams.get("error_code");
+    const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
     
     // If email is not in params, try to extract from JWT token
     if (!email && token && token.includes('.')) {
@@ -36,7 +38,7 @@ function ResetPasswordHandler() {
         const payload = JSON.parse(atob(token.split('.')[1]));
         email = payload.email;
         console.log('🔍 Extracted email from token:', email);
-      } catch (e) {
+      } catch {
         console.log('🔍 Could not extract email from token');
       }
     }
@@ -44,15 +46,17 @@ function ResetPasswordHandler() {
     console.log('🔍 EXTRACTED VALUES:', { token: token?.substring(0, 20), email, type, error, errorCode });
     
     // Detect if this is likely a mobile device
+    // Check for mobile user agents AND if we're in a mobile app context (not just mobile browser)
     const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(window.navigator.userAgent);
     
     // Only redirect to app if we're on a mobile device
+    // The app will handle the deep link if it's installed
     // Otherwise, show the web form
     const shouldRedirectToApp = isMobileDevice;
 
     // If there's an error, handle differently for web vs mobile
     if (error || errorCode) {
-      const errorDescription = searchParams.get("error_description") || "This link is invalid or has expired";
+      const errorDescription = hashParams.get("error_description") || searchParams.get("error_description") || "This link is invalid or has expired";
       const errorMsg = decodeURIComponent(errorDescription.replace(/\+/g, " "));
       
       if (shouldRedirectToApp) {
@@ -72,12 +76,6 @@ function ResetPasswordHandler() {
     if (token) {
       if (shouldRedirectToApp) {
         // Redirect to mobile app with deep link
-        // NOTE: For password reset, we need to redirect to set-password screen
-        const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
-        
-        console.log("🔍 Refresh token from hash:", hashParams.get("refresh_token"));
-        console.log("🔍 Refresh token found:", refreshToken);
-        
         const params = new URLSearchParams({
           token_hash: token,  // Use token_hash for mobile app
           type: type || 'recovery',
@@ -90,8 +88,6 @@ function ResetPasswordHandler() {
         if (refreshToken) {
           console.log("🔍 Adding refresh_token to deep link");
           params.append("refresh_token", refreshToken);
-        } else {
-          console.log("🔍 No refresh_token found, will cause error");
         }
         
         const deepLink = `omniflow://set-password?${params.toString()}`;
@@ -107,14 +103,18 @@ function ResetPasswordHandler() {
           setShowWebForm(true);
         }, 2000);
       } else {
-        // For web desktop, redirect to set-password page
+        // For web desktop, redirect to set-password page with all necessary params
         const params = new URLSearchParams({
-          token,
-          type,
+          access_token: token, // Use access_token for web
+          type: type || 'recovery',
         });
         
         if (email) {
           params.append("email", email);
+        }
+        
+        if (refreshToken) {
+          params.append("refresh_token", refreshToken);
         }
         
         console.log("Desktop browser detected - redirecting to set-password page");
@@ -128,7 +128,7 @@ function ResetPasswordHandler() {
         router.push("/login");
       }
     }
-  }, [router, searchParams, showWebForm]);
+  }, [router, searchParams]);
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();

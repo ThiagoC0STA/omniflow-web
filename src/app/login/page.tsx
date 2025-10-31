@@ -1,15 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/auth-store'
-import { Eye, EyeOff, Loader2, Shield, Users, Zap, BookOpen, CheckCircle, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Shield, Users, Zap, BookOpen, ArrowRight } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -19,6 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { setUser, setMustChangePassword } = useAuthStore()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -42,14 +42,34 @@ export default function LoginPage() {
       console.log('Login successful:', data)
 
       if (data.user) {
-        // Check if password needs to be changed
-        if (/Aa![0-9]{3,}$/.test(password)) {
-          router.push('/set-password')
-        } else {
-          router.push('/portal')
+        // Fetch user profile immediately after login
+        const { data: userData, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single()
+
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError)
+          throw new Error('Failed to load user profile')
+        }
+
+        if (userData) {
+          setUser(userData)
+          
+          // Check if password needs to be changed
+          if (/Aa![0-9]{3,}$/.test(password)) {
+            setMustChangePassword(true)
+            router.push('/set-password')
+          } else {
+            setMustChangePassword(false)
+            const redirectTo = searchParams.get('redirect') || '/portal'
+            router.push(redirectTo)
+          }
         }
       }
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { message?: string }
       console.error('Login error:', error)
       setError(error.message || 'Login failed')
     } finally {
@@ -71,9 +91,10 @@ export default function LoginPage() {
         console.log('User created:', data)
         setError('User created successfully! Check your email to confirm.')
       }
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { message?: string }
       console.error('Error:', error)
-      setError(error.message)
+      setError(error.message || 'Failed to create user')
     }
   }
 
@@ -244,20 +265,12 @@ export default function LoginPage() {
                 <div className="text-center space-y-3">
                   <button
                     type="button"
+                    onClick={() => router.push('/forgot-password')}
                     className="text-sm text-slate-600 hover:text-slate-800 font-medium transition-colors"
                   >
                     Forgot your password?
                   </button>
-                  
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={createTestUser}
-                      className="text-xs text-slate-500 hover:text-slate-700 underline transition-colors"
-                    >
-                      Create test user (test@example.com / password123)
-                    </button>
-                  </div>
+            
                 </div>
               </CardContent>
             </Card>
