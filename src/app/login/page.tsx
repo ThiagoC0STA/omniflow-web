@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/auth-store'
 import { Eye, EyeOff, Loader2, Shield, Users, Zap, BookOpen, ArrowRight } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -74,27 +74,6 @@ export default function LoginPage() {
       setError(error.message || 'Login failed')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const createTestUser = async () => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: 'test@example.com',
-        password: 'password123',
-      })
-      
-      if (error) {
-        console.error('Signup error:', error)
-        setError(error.message)
-      } else {
-        console.log('User created:', data)
-        setError('User created successfully! Check your email to confirm.')
-      }
-    } catch (err: unknown) {
-      const error = err as { message?: string }
-      console.error('Error:', error)
-      setError(error.message || 'Failed to create user')
     }
   }
 
@@ -284,5 +263,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <Logo width={180} height={63} className="mx-auto mb-4" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-slate-600" />
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

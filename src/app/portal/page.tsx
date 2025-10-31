@@ -214,7 +214,7 @@ export default function PortalPage() {
                 Welcome back! 👋
               </h1>
               <p className="text-slate-600 text-lg">
-                Here's what's happening with your account today.
+                Here&apos;s what&apos;s happening with your account today.
               </p>
             </div>
         
