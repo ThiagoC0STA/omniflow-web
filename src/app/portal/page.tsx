@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/Logo'
 import { useAuthStore } from '@/store/auth-store'
 import { supabase } from '@/lib/supabase'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { 
   Bot, 
   GraduationCap, 
@@ -32,7 +33,9 @@ import {
   BarChart3,
   Newspaper,
   Settings,
-  Crown
+  Crown,
+  User,
+  ChevronDown
 } from 'lucide-react'
 
 const dashboardStats = [
@@ -146,6 +149,7 @@ export default function PortalPage() {
   const router = useRouter()
   const { user, signOut } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
 
   const handleSignOut = async () => {
     try {
@@ -182,23 +186,95 @@ export default function PortalPage() {
             </div>
             
             <div className="flex items-center space-x-3">
-              {/* Temporarily show admin button for all users for testing */}
-              <Button
-                variant="outline"
-                onClick={() => router.push('/admin')}
-                className="flex items-center gap-2 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all"
-              >
-                <Crown className="h-4 w-4" />
-                Admin Panel
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleSignOut}
-                className="flex items-center gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
+              {/* Profile Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <Avatar className="h-10 w-10 border-2 border-slate-200">
+                    <AvatarImage src={undefined} alt={user?.email || 'User'} />
+                    <AvatarFallback className="bg-gradient-to-br from-red-500 to-red-600 text-white font-semibold">
+                      {user?.email?.charAt(0).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden md:block text-left">
+                    <div className="text-sm font-medium text-slate-900">
+                      {user?.name || user?.email?.split('@')[0] || 'User'}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {user?.email || ''}
+                    </div>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {profileDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setProfileDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-50">
+                      <div className="px-4 py-3 border-b border-slate-200">
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-12 w-12 border-2 border-slate-200">
+                            <AvatarImage src={undefined} alt={user?.email || 'User'} />
+                            <AvatarFallback className="bg-gradient-to-br from-red-500 to-red-600 text-white font-semibold">
+                              {user?.email?.charAt(0).toUpperCase() || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-slate-900 truncate">
+                              {user?.name || user?.email?.split('@')[0] || 'User'}
+                            </div>
+                            <div className="text-xs text-slate-500 truncate">
+                              {user?.email}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="py-1">
+                        {user?.role === 'admin' && (
+                          <button
+                            onClick={() => {
+                              setProfileDropdownOpen(false)
+                              router.push('/admin')
+                            }}
+                            className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          >
+                            <Crown className="h-4 w-4 text-purple-600" />
+                            <span>Admin Panel</span>
+                          </button>
+                        )}
+                        {/* <button
+                          onClick={() => {
+                            setProfileDropdownOpen(false)
+                            // TODO: Add settings page
+                          }}
+                          className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <Settings className="h-4 w-4 text-slate-600" />
+                          <span>Settings</span>
+                        </button>
+                        <div className="border-t border-slate-200 my-1" /> */}
+                        <button
+                          onClick={() => {
+                            setProfileDropdownOpen(false)
+                            handleSignOut()
+                          }}
+                          className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

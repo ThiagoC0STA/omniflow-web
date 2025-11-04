@@ -8,10 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
-import { Eye, EyeOff, Loader2, CheckCircle, XCircle, Shield, Key, Lock } from 'lucide-react'
+import { Eye, EyeOff, Loader2, CheckCircle, XCircle, Shield, Key, Lock, User } from 'lucide-react'
 import { useAuthStore } from '@/store/auth-store'
 
 function SetPasswordContent() {
+  const [name, setName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -30,6 +32,41 @@ function SetPasswordContent() {
                   searchParams.get('token_hash') || hashParams.get('token_hash');
     const type = searchParams.get('type') || hashParams.get('type');
     const email = searchParams.get('email') || hashParams.get('email');
+    const refreshToken = searchParams.get('refresh_token') || hashParams.get('refresh_token');
+
+    // If we have tokens in hash, set the session first
+    if (hashParams.get('access_token') && hashParams.get('refresh_token')) {
+      const setSession = async () => {
+        try {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: hashParams.get('access_token')!,
+            refresh_token: hashParams.get('refresh_token')!,
+          });
+
+          if (sessionError) {
+            console.error('Error setting session:', sessionError);
+            setMessage({ type: 'error', text: 'Failed to authenticate. Please try again.' });
+            return;
+          }
+
+          // Session set successfully, now redirect to set-password with query params
+          const params = new URLSearchParams({
+            access_token: hashParams.get('access_token')!,
+            type: hashParams.get('type') || 'invite',
+          });
+          if (email) params.append('email', email);
+          if (hashParams.get('refresh_token')) params.append('refresh_token', hashParams.get('refresh_token')!);
+          
+          router.replace(`/set-password?${params.toString()}`);
+        } catch (err) {
+          console.error('Error in setSession:', err);
+          setMessage({ type: 'error', text: 'Failed to authenticate. Please try again.' });
+        }
+      };
+
+      setSession();
+      return;
+    }
 
     // If we have a token but no type, assume it's recovery
     if (token && !type) {
@@ -40,11 +77,33 @@ function SetPasswordContent() {
           type: 'recovery',
         });
         if (email) params.append('email', email);
-        const refreshToken = hashParams.get('refresh_token');
         if (refreshToken) params.append('refresh_token', refreshToken);
         router.replace(`/set-password?${params.toString()}`);
         return;
       }
+    }
+
+    // Set session if we have access_token and refresh_token in query params
+    if (token && refreshToken && type === 'invite') {
+      const setSession = async () => {
+        try {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: token,
+            refresh_token: refreshToken,
+          });
+
+          if (sessionError) {
+            console.error('Error setting session:', sessionError);
+            setMessage({ type: 'error', text: 'Failed to authenticate. Please try again.' });
+          } else {
+            console.log('Session set successfully');
+          }
+        } catch (err) {
+          console.error('Error in setSession:', err);
+        }
+      };
+
+      setSession();
     }
 
     if (type === 'recovery' && token) {
@@ -55,11 +114,38 @@ function SetPasswordContent() {
       // No token found, redirect to login
       router.push('/login?error=Invalid or expired reset link')
     }
+
+    // Get user email from session if available
+    const fetchUserEmail = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (authUser?.email) {
+          setUserEmail(authUser.email)
+        } else if (email) {
+          setUserEmail(email)
+        }
+      } catch (err) {
+        // If session not ready yet, use email from params
+        if (email) {
+          setUserEmail(email)
+        }
+      }
+    }
+
+    // Only fetch email if we have a valid token
+    if (token) {
+      fetchUserEmail()
+    }
   }, [searchParams, router])
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setMessage(null)
+
+    if (!name.trim()) {
+      setMessage({ type: 'error', text: 'Please enter your name.' })
+      return
+    }
 
     if (password !== confirmPassword) {
       setMessage({ type: 'error', text: 'Passwords do not match.' })
@@ -73,12 +159,48 @@ function SetPasswordContent() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.updateUser({ password })
+      // Update password
+      const { error: passwordError } = await supabase.auth.updateUser({ password })
 
-      if (error) throw error
+      if (passwordError) throw passwordError
 
-      setMessage({ type: 'success', text: 'Password updated successfully! Redirecting to portal...' })
+      // Get current user
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      
+      if (!authUser) {
+        throw new Error('User not found')
+      }
+
+      // Update user profile with name
+      const { error: profileError } = await supabase
+        .from('users')
+        .update({ 
+          name: name.trim(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', authUser.id)
+
+      if (profileError) {
+        console.error('Error updating profile:', profileError)
+        // Don't fail the whole operation if profile update fails
+        setMessage({ type: 'success', text: 'Password updated successfully! Redirecting to portal...' })
+      } else {
+        setMessage({ type: 'success', text: 'Password and profile updated successfully! Redirecting to portal...' })
+      }
+
       setMustChangePassword(false)
+      
+      // Refresh user data
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+
+      if (userData) {
+        useAuthStore.getState().setUser(userData as any)
+      }
+
       setTimeout(() => {
         router.push('/portal')
       }, 2000)
@@ -118,7 +240,30 @@ function SetPasswordContent() {
             </CardHeader>
             
             <CardContent className="space-y-6">
+              {userEmail && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="text-sm font-medium text-blue-900">Account</div>
+                  <div className="text-sm text-blue-700">{userEmail}</div>
+                </div>
+              )}
+              
               <form onSubmit={handleSetPassword} className="space-y-6">
+                <div className="space-y-2">
+                  <label htmlFor="name" className="text-sm font-medium text-slate-700 flex items-center space-x-2">
+                    <User className="h-4 w-4" />
+                    <span>Full Name</span>
+                  </label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className="h-12 border-slate-200 focus:border-purple-500 focus:ring-purple-500"
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <label htmlFor="password" className="text-sm font-medium text-slate-700 flex items-center space-x-2">
                     <Key className="h-4 w-4" />

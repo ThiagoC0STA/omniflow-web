@@ -6,59 +6,42 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Logo } from '@/components/Logo'
 import { useAuthStore } from '@/store/auth-store'
-import { supabase, supabaseAdmin } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { 
   ArrowLeft, 
   Users, 
   Plus, 
   Search,
-  Filter,
-  MoreVertical,
   Edit,
   Trash2,
-  Mail,
-  Shield,
   Crown,
   UserCheck,
   UserX,
-  Clock,
   CheckCircle,
-  AlertCircle,
-  TrendingUp,
-  BarChart3,
-  Settings,
-  Bell,
-  Download,
-  Upload,
-  Eye,
-  Key,
-  Calendar,
-  Activity,
-  Zap,
-  Target,
-  Star,
-  MessageSquare,
-  FileText,
-  Headphones,
-  BookOpen,
   Newspaper,
   GraduationCap,
   X,
   Send,
   LogOut,
   Loader2,
-  XCircle
+  XCircle,
+  FileText,
+  RefreshCw,
+  Mail,
+  Calendar,
+  Shield,
+  Eye,
+  Clock
 } from 'lucide-react'
 
 interface User {
   id: string
-  name: string
+  name?: string
   email: string
   role: 'admin' | 'client'
   status: 'active' | 'inactive' | 'pending'
-  lastLogin: string
+  lastLogin?: string
   createdAt: string
   avatarUrl?: string
 }
@@ -98,14 +81,35 @@ interface NewsArticle {
   createdAt: string
 }
 
+interface Invite {
+  id: string
+  email: string
+  token: string
+  expires_at: string
+  used: boolean
+  created_at: string
+  created_by?: string
+}
+
 export default function AdminPage() {
   const router = useRouter()
   const { user, signOut } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'users' | 'training' | 'rfqs' | 'news'>('users')
+  const [userSubTab, setUserSubTab] = useState<'active' | 'invites'>('active')
   const [showAddUserModal, setShowAddUserModal] = useState(false)
   const [showAddTrainingModal, setShowAddTrainingModal] = useState(false)
   const [showAddNewsModal, setShowAddNewsModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  
+  // Users state
+  const [users, setUsers] = useState<User[]>([])
+  const [usersLoading, setUsersLoading] = useState(true)
+  const [usersError, setUsersError] = useState('')
+  
+  // Invites state
+  const [invites, setInvites] = useState<Invite[]>([])
+  const [invitesLoading, setInvitesLoading] = useState(false)
+  const [invitesError, setInvitesError] = useState('')
   
   // Invite user modal state
   const [inviteEmail, setInviteEmail] = useState('')
@@ -114,44 +118,7 @@ export default function AdminPage() {
   const [inviteError, setInviteError] = useState('')
   const [inviteSuccess, setInviteSuccess] = useState(false)
 
-  // Redirect if not admin - Temporarily disabled for testing
-  // useEffect(() => {
-  //   if (user && user.role !== 'admin') {
-  //     router.push('/portal')
-  //   }
-  // }, [user, router])
-
-  // Mock data
-  const users: User[] = [
-    {
-      id: '1',
-      name: 'John Smith',
-      email: 'john@example.com',
-      role: 'client',
-      status: 'active',
-      lastLogin: '2024-01-15',
-      createdAt: '2023-12-01'
-    },
-    {
-      id: '2',
-      name: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      role: 'admin',
-      status: 'active',
-      lastLogin: '2024-01-14',
-      createdAt: '2023-11-15'
-    },
-    {
-      id: '3',
-      name: 'Mike Davis',
-      email: 'mike@example.com',
-      role: 'client',
-      status: 'pending',
-      lastLogin: '2024-01-10',
-      createdAt: '2024-01-01'
-    }
-  ]
-
+  // Mock data for other tabs
   const trainings: Training[] = [
     {
       id: '1',
@@ -225,30 +192,87 @@ export default function AdminPage() {
     }
   ]
 
+  // Fetch users from database
+  const fetchUsers = async () => {
+    setUsersLoading(true)
+    setUsersError('')
+    
+    try {
+      // Fetch users from our database (completed registrations)
+      // RLS policies should allow admins to see all users
+      const { data: dbUsers, error: dbError } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (dbError) {
+        throw dbError
+      }
+
+      // Transform database users to User interface
+      const transformedUsers: User[] = (dbUsers || []).map((dbUser: any) => ({
+        id: dbUser.id,
+        name: dbUser.name || dbUser.email?.split('@')[0] || 'Unknown',
+        email: dbUser.email,
+        role: dbUser.role || 'client',
+        status: 'active',
+        createdAt: dbUser.created_at || dbUser.createdAt || new Date().toISOString(),
+        lastLogin: dbUser.last_login || dbUser.lastLogin
+      }))
+
+      setUsers(transformedUsers)
+    } catch (error: any) {
+      console.error('Error fetching users:', error)
+      setUsersError(error.message || 'Failed to load users')
+    } finally {
+      setUsersLoading(false)
+    }
+  }
+
+  // Fetch invites from database
+  const fetchInvites = async () => {
+    setInvitesLoading(true)
+    setInvitesError('')
+    
+    try {
+      const { data, error } = await supabase
+        .from('invites')
+        .select('*')
+        .eq('used', false)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      setInvites(data || [])
+    } catch (error: any) {
+      console.error('Error fetching invites:', error)
+      setInvitesError(error.message || 'Failed to load invites')
+    } finally {
+      setInvitesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUsers()
+    fetchInvites()
+  }, [])
+
   const handleSignOut = async () => {
     try {
-      // Sign out from Supabase first
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       
-      // Then clear local state
       signOut()
-      
-      // Redirect to login with full page reload to ensure session is cleared
       window.location.href = '/login'
     } catch (error) {
       console.error('Error signing out:', error)
-      // Even if Supabase fails, clear local state and redirect
       signOut()
       window.location.href = '/login'
     }
   }
 
-  const generateTempPassword = () => {
-    const base = Math.random().toString(36).slice(-8)
-    const extra = Math.floor(100 + Math.random() * 900)
-    return `${base}Aa!${extra}`
-  }
 
   const handleSendInvite = async () => {
     if (!inviteEmail) {
@@ -256,7 +280,6 @@ export default function AdminPage() {
       return
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(inviteEmail.trim())) {
       setInviteError('Please enter a valid email address')
@@ -268,80 +291,39 @@ export default function AdminPage() {
     setInviteSuccess(false)
 
     try {
-      // Check if user already exists
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
-      const existing = existingUsers?.users?.find(u => u.email === inviteEmail.trim())
+      // Get current session to ensure we have the latest token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session) {
+        throw new Error('Session expired. Please log in again.')
+      }
 
-      const tempPassword = generateTempPassword()
-      let createdUserId: string | undefined = existing?.id
-
-      if (existing) {
-        // User exists: update password to temporary password
-        const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
-          password: tempPassword,
-        })
-        if (updateErr) throw updateErr
-      } else {
-        // Create new user with temporary password
-        const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      // Call API route to create user and send email
+      const response = await fetch('/api/invites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
           email: inviteEmail.trim(),
-          password: tempPassword,
-          email_confirm: true,
-        })
-        if (createErr) throw createErr
-        createdUserId = created?.user?.id
+          role: inviteRole,
+        }),
+      })
 
-        // Create user profile
-        if (createdUserId) {
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert({ 
-              id: createdUserId, 
-              email: inviteEmail.trim(), 
-              role: inviteRole 
-            })
-          if (profileError) {
-            console.warn('Profile insert error', profileError)
-            // If profile creation fails but user exists, try to update role
-            if (profileError.code !== '23505') {
-              throw profileError
-            }
-          }
-        }
-      }
+      const data = await response.json()
 
-      // Send email with temporary password via Edge Function
-      try {
-        const { error: fnError } = await supabase.functions.invoke('send-invite-email', {
-          body: { to: inviteEmail.trim(), tempPassword },
-        })
-        if (fnError) {
-          console.warn('Email send error', fnError)
-          // Don't throw - user is created even if email fails
-        }
-      } catch (e) {
-        console.warn('Email send exception', e)
-        // Don't throw - user is created even if email fails
-      }
-
-      // Store invite record (token is required by schema, but we use temp password flow)
-      try {
-        const token = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`
-        await supabase.from('invites').insert({ 
-          email: inviteEmail.trim(), 
-          used: true, 
-          created_by: user?.id,
-          token: token,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days from now
-        })
-      } catch (inviteError) {
-        console.warn('Invite record error', inviteError)
-        // Don't throw - invite record is optional
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send invite')
       }
 
       setInviteSuccess(true)
       setInviteEmail('')
       setInviteRole('client')
+      
+      // Refresh users and invites lists
+      await fetchUsers()
+      await fetchInvites()
       
       // Close modal after 2 seconds
       setTimeout(() => {
@@ -365,38 +347,96 @@ export default function AdminPage() {
     setInviteSuccess(false)
   }
 
-  const toggleUserRole = (userId: string) => {
-    // TODO: Implement role toggle
-    console.log('Toggle role for user:', userId)
+  const toggleUserRole = async (userId: string) => {
+    try {
+      const userToToggle = users.find(u => u.id === userId)
+      if (!userToToggle) return
+
+      const newRole = userToToggle.role === 'admin' ? 'client' : 'admin'
+      
+      // Update via regular client (RLS policies should allow admins to update)
+      const { error } = await supabase
+        .from('users')
+        .update({ role: newRole })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      await fetchUsers()
+    } catch (error) {
+      console.error('Error toggling user role:', error)
+      alert('Failed to update user role. You may need to set up RLS policies.')
+    }
   }
 
-  const deleteUser = (userId: string) => {
-    // TODO: Implement user deletion
-    console.log('Delete user:', userId)
+  const deleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      // Delete from database (RLS policies should allow admins to delete)
+      const { error: dbError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId)
+
+      if (dbError) throw dbError
+
+      await fetchUsers()
+      alert('User profile deleted. Note: Auth user deletion requires server-side operation.')
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert('Failed to delete user. You may need to set up RLS policies.')
+    }
   }
+
+  const cancelInvite = async (inviteId: string) => {
+    if (!confirm('Are you sure you want to cancel this invite?')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('invites')
+        .delete()
+        .eq('id', inviteId)
+
+      if (error) throw error
+
+      await fetchInvites()
+    } catch (error) {
+      console.error('Error canceling invite:', error)
+      alert('Failed to cancel invite')
+    }
+  }
+
+  const filteredInvites = invites.filter(invite =>
+    invite.email.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800'
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
-      case 'inactive': return 'bg-red-100 text-red-800'
-      case 'published': return 'bg-green-100 text-green-800'
-      case 'draft': return 'bg-yellow-100 text-yellow-800'
-      case 'archived': return 'bg-gray-100 text-gray-800'
-      case 'in-review': return 'bg-blue-100 text-blue-800'
-      case 'quoted': return 'bg-purple-100 text-purple-800'
-      case 'approved': return 'bg-green-100 text-green-800'
-      case 'rejected': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'active': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200'
+      case 'inactive': return 'bg-red-100 text-red-700 border-red-200'
+      case 'published': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      case 'draft': return 'bg-amber-100 text-amber-700 border-amber-200'
+      case 'archived': return 'bg-slate-100 text-slate-700 border-slate-200'
+      case 'in-review': return 'bg-blue-100 text-blue-700 border-blue-200'
+      case 'quoted': return 'bg-purple-100 text-purple-700 border-purple-200'
+      case 'approved': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      case 'rejected': return 'bg-red-100 text-red-700 border-red-200'
+      default: return 'bg-slate-100 text-slate-700 border-slate-200'
     }
   }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800'
-      case 'medium': return 'bg-yellow-100 text-yellow-800'
-      case 'low': return 'bg-green-100 text-green-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'high': return 'bg-red-100 text-red-700 border-red-200'
+      case 'medium': return 'bg-amber-100 text-amber-700 border-amber-200'
+      case 'low': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      default: return 'bg-slate-100 text-slate-700 border-slate-200'
     }
   }
 
@@ -408,41 +448,28 @@ export default function AdminPage() {
     })
   }
 
-  // Temporarily allow all users for testing
-  // if (!user || user.role !== 'admin') {
-  //   return (
-  //     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-  //       <Card className="w-full max-w-md">
-  //         <CardContent className="p-6 text-center">
-  //           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-  //           <h2 className="text-xl font-semibold text-slate-900 mb-2">Access Denied</h2>
-  //           <p className="text-slate-600 mb-4">You don't have permission to access this page.</p>
-  //           <Button onClick={() => router.push('/portal')}>
-  //             Return to Portal
-  //           </Button>
-  //         </CardContent>
-  //       </Card>
-  //     </div>
-  //   )
-  // }
+  const filteredUsers = users.filter(u => 
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  )
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200/50 shadow-sm sticky top-0 z-50">
+      <header className="bg-white/80 backdrop-blur-lg border-b border-slate-200/50 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
                 onClick={() => router.push('/portal')}
-                className="flex items-center gap-2 px-3"
+                className="flex items-center gap-2 px-3 hover:bg-slate-100"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Crown className="h-6 w-6 text-purple-600" />
+                <div className="p-2.5 bg-red-600 rounded-xl shadow-lg">
+                  <Crown className="h-6 w-6 text-white" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-slate-900">Admin Panel</h1>
@@ -466,60 +493,60 @@ export default function AdminPage() {
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-lg bg-white bg-gradient-to-br from-blue-50 to-blue-100/50 hover:shadow-xl transition-all">
+            <CardContent className="p-6 bg-transparent">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Total Users</p>
-                  <p className="text-2xl font-bold text-slate-900">{users.length}</p>
+                  <p className="text-sm font-medium text-slate-600 mb-1">Total Users</p>
+                  <p className="text-3xl font-bold text-slate-900">{users.length}</p>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <Users className="h-6 w-6 text-blue-600" />
+                <div className="p-3 bg-blue-500 rounded-xl shadow-lg">
+                  <Users className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-lg bg-white bg-gradient-to-br from-emerald-50 to-emerald-100/50 hover:shadow-xl transition-all">
+            <CardContent className="p-6 bg-transparent">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Active Trainings</p>
-                  <p className="text-2xl font-bold text-slate-900">{trainings.filter(t => t.status === 'published').length}</p>
+                  <p className="text-sm font-medium text-slate-600 mb-1">Active Trainings</p>
+                  <p className="text-3xl font-bold text-slate-900">{trainings.filter(t => t.status === 'published').length}</p>
                 </div>
-                <div className="p-3 bg-green-100 rounded-xl">
-                  <GraduationCap className="h-6 w-6 text-green-600" />
+                <div className="p-3 bg-emerald-500 rounded-xl shadow-lg">
+                  <GraduationCap className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-lg bg-white bg-gradient-to-br from-orange-50 to-orange-100/50 hover:shadow-xl transition-all">
+            <CardContent className="p-6 bg-transparent">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Pending RFQs</p>
-                  <p className="text-2xl font-bold text-slate-900">{rfqs.filter(r => r.status === 'pending').length}</p>
+                  <p className="text-sm font-medium text-slate-600 mb-1">Pending RFQs</p>
+                  <p className="text-3xl font-bold text-slate-900">{rfqs.filter(r => r.status === 'pending').length}</p>
                 </div>
-                <div className="p-3 bg-orange-100 rounded-xl">
-                  <FileText className="h-6 w-6 text-orange-600" />
+                <div className="p-3 bg-orange-500 rounded-xl shadow-lg">
+                  <FileText className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-lg bg-white bg-gradient-to-br from-purple-50 to-purple-100/50 hover:shadow-xl transition-all">
+            <CardContent className="p-6 bg-transparent">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Published News</p>
-                  <p className="text-2xl font-bold text-slate-900">{newsArticles.filter(n => n.status === 'published').length}</p>
+                  <p className="text-sm font-medium text-slate-600 mb-1">Published News</p>
+                  <p className="text-3xl font-bold text-slate-900">{newsArticles.filter(n => n.status === 'published').length}</p>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-xl">
-                  <Newspaper className="h-6 w-6 text-purple-600" />
+                <div className="p-3 bg-purple-500 rounded-xl shadow-lg">
+                  <Newspaper className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
@@ -528,11 +555,11 @@ export default function AdminPage() {
 
         {/* Tab Navigation */}
         <div className="mb-8">
-          <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg w-fit">
+          <div className="flex space-x-2 bg-white p-1.5 rounded-xl shadow-lg border border-slate-200 w-fit">
             <Button
               variant={activeTab === 'users' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('users')}
-              className={`px-6 ${activeTab === 'users' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'} transition-all duration-200`}
+              className={`px-6 ${activeTab === 'users' ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md hover:from-red-700 hover:to-red-800' : 'bg-transparent hover:bg-primary-50 hover:text-primary-700'} transition-all duration-200`}
             >
               <Users className="h-4 w-4 mr-2" />
               Users
@@ -540,7 +567,7 @@ export default function AdminPage() {
             <Button
               variant={activeTab === 'training' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('training')}
-              className={`px-6 ${activeTab === 'training' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'} transition-all duration-200`}
+              className={`px-6 ${activeTab === 'training' ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md hover:from-purple-700 hover:to-purple-800' : 'bg-transparent hover:bg-purple-50 hover:text-purple-700'} transition-all duration-200`}
             >
               <GraduationCap className="h-4 w-4 mr-2" />
               Training
@@ -548,7 +575,7 @@ export default function AdminPage() {
             <Button
               variant={activeTab === 'rfqs' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('rfqs')}
-              className={`px-6 ${activeTab === 'rfqs' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'} transition-all duration-200`}
+              className={`px-6 ${activeTab === 'rfqs' ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-md hover:from-orange-700 hover:to-orange-800' : 'bg-transparent hover:bg-orange-50 hover:text-orange-700'} transition-all duration-200`}
             >
               <FileText className="h-4 w-4 mr-2" />
               RFQs
@@ -556,7 +583,7 @@ export default function AdminPage() {
             <Button
               variant={activeTab === 'news' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('news')}
-              className={`px-6 ${activeTab === 'news' ? 'bg-red-600 text-white shadow-sm hover:bg-red-700' : 'hover:bg-slate-200'} transition-all duration-200`}
+              className={`px-6 ${activeTab === 'news' ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md hover:from-blue-700 hover:to-blue-800' : 'bg-transparent hover:bg-blue-50 hover:text-blue-700'} transition-all duration-200`}
             >
               <Newspaper className="h-4 w-4 mr-2" />
               News
@@ -567,29 +594,40 @@ export default function AdminPage() {
         {/* Search and Actions */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+            <Input
               type="text"
               placeholder={`Search ${activeTab}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              className="w-full pl-10 pr-4 py-2.5 border-slate-200 rounded-xl focus:ring-2 focus:ring-primary-600 focus:border-primary-600 bg-white shadow-sm"
             />
           </div>
           <div className="flex gap-2">
             {activeTab === 'users' && (
-              <Button
-                onClick={() => setShowAddUserModal(true)}
-                className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add User
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={fetchUsers}
+                  disabled={usersLoading}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${usersLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <Button
+                  onClick={() => setShowAddUserModal(true)}
+                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </>
             )}
             {activeTab === 'training' && (
               <Button
                 onClick={() => setShowAddTrainingModal(true)}
-                className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Training
@@ -598,7 +636,7 @@ export default function AdminPage() {
             {activeTab === 'news' && (
               <Button
                 onClick={() => setShowAddNewsModal(true)}
-                className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add News
@@ -609,62 +647,207 @@ export default function AdminPage() {
 
         {/* Content */}
         {activeTab === 'users' && (
-          <div className="space-y-4">
-            {users.map((user) => (
-              <Card key={user.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-sm font-semibold">
-                        {user.name.split(' ').map(n => n[0]).join('')}
+          <div className="space-y-6">
+            {/* User Sub-tabs */}
+            <div className="flex space-x-2 bg-white p-1.5 rounded-xl shadow-md border border-slate-200 w-fit">
+              <Button
+                variant={userSubTab === 'active' ? 'default' : 'ghost'}
+                onClick={() => setUserSubTab('active')}
+                className={`px-6 ${userSubTab === 'active' ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md hover:from-red-700 hover:to-red-800' : 'bg-transparent hover:bg-primary-50 hover:text-primary-700'} transition-all duration-200`}
+              >
+                <UserCheck className="h-4 w-4 mr-2" />
+                Active Users ({users.length})
+              </Button>
+              <Button
+                variant={userSubTab === 'invites' ? 'default' : 'ghost'}
+                onClick={() => setUserSubTab('invites')}
+                className={`px-6 ${userSubTab === 'invites' ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md hover:from-red-700 hover:to-red-800' : 'bg-transparent hover:bg-primary-50 hover:text-primary-700'} transition-all duration-200`}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Invites ({invites.length})
+              </Button>
+            </div>
+
+            {/* Active Users Tab */}
+            {userSubTab === 'active' && (
+              <div className="space-y-4">
+                {usersLoading ? (
+                  <Card className="border-0 shadow-lg bg-white">
+                    <CardContent className="p-12 text-center bg-white">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-600 mb-4" />
+                      <p className="text-slate-600">Loading users...</p>
+                    </CardContent>
+                  </Card>
+                ) : usersError ? (
+                  <Card className="border-0 shadow-lg border-red-200 bg-red-50">
+                    <CardContent className="p-6 bg-red-50">
+                      <div className="flex items-center gap-3 text-red-700">
+                        <XCircle className="h-5 w-5" />
+                        <span>{usersError}</span>
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-900">{user.name}</h3>
-                        <p className="text-sm text-slate-600">{user.email}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge className={getStatusColor(user.status)}>
-                            {user.status}
-                          </Badge>
-                          <Badge className={user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}>
-                            {user.role}
-                          </Badge>
+                    </CardContent>
+                  </Card>
+                ) : filteredUsers.length === 0 ? (
+                  <Card className="border-0 shadow-lg bg-white">
+                    <CardContent className="p-12 text-center bg-white">
+                      <Users className="h-12 w-12 mx-auto text-slate-400 mb-4" />
+                      <p className="text-slate-600">No users found</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  filteredUsers.map((userItem) => (
+                <Card key={userItem.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white">
+                  <CardContent className="p-6 bg-white">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-600 to-red-700 text-white flex items-center justify-center text-lg font-semibold shadow-lg">
+                          {userItem.name?.split(' ').map(n => n[0]).join('').toUpperCase() || userItem.email[0].toUpperCase()}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-lg font-semibold text-slate-900">{userItem.name || 'Unknown'}</h3>
+                            {userItem.role === 'admin' && (
+                              <Crown className="h-4 w-4 text-primary-600" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Mail className="h-4 w-4 text-slate-400" />
+                            <p className="text-sm text-slate-600">{userItem.email}</p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className={`${getStatusColor(userItem.status)} border`}>
+                              {userItem.status}
+                            </Badge>
+                            <Badge className={userItem.role === 'admin' ? 'bg-primary-100 text-primary-700 border-primary-200' : 'bg-blue-100 text-blue-700 border-blue-200'}>
+                              <Shield className="h-3 w-3 mr-1" />
+                              {userItem.role}
+                            </Badge>
+                            {userItem.createdAt && (
+                              <Badge variant="outline" className="text-slate-600">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {formatDate(userItem.createdAt)}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleUserRole(userItem.id)}
+                          className="transition-all duration-200 hover:bg-slate-100"
+                          title={userItem.role === 'admin' ? 'Remove admin' : 'Make admin'}
+                        >
+                          {userItem.role === 'admin' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deleteUser(userItem.id)}
+                          className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200"
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleUserRole(user.id)}
-                        className="transition-all duration-200"
-                      >
-                        {user.role === 'admin' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteUser(user.id)}
-                        className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Invites Tab */}
+            {userSubTab === 'invites' && (
+              <div className="space-y-4">
+                {invitesLoading ? (
+                  <Card className="border-0 shadow-lg bg-white">
+                    <CardContent className="p-12 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-600 mb-4" />
+                      <p className="text-slate-600">Loading invites...</p>
+                    </CardContent>
+                  </Card>
+                ) : invitesError ? (
+                  <Card className="border-0 shadow-lg border-red-200 bg-red-50">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 text-red-700">
+                        <XCircle className="h-5 w-5" />
+                        <span>{invitesError}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : filteredInvites.length === 0 ? (
+                  <Card className="border-0 shadow-lg bg-white">
+                    <CardContent className="p-12 text-center">
+                      <Mail className="h-12 w-12 mx-auto text-slate-400 mb-4" />
+                      <p className="text-slate-600">No pending invites</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  filteredInvites.map((invite) => (
+                    <Card key={invite.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white">
+                      <CardContent className="p-6 bg-white">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4 flex-1">
+                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-600 to-red-700 text-white flex items-center justify-center text-lg font-semibold shadow-lg">
+                              <Mail className="h-6 w-6" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-lg font-semibold text-slate-900">{invite.email}</h3>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge className="bg-primary-100 text-primary-700 border-primary-200">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Pending
+                                </Badge>
+                                {invite.expires_at && (
+                                  <Badge variant="outline" className="text-slate-600">
+                                    <Calendar className="h-3 w-3 mr-1" />
+                                    Expires: {formatDate(invite.expires_at)}
+                                  </Badge>
+                                )}
+                                {invite.created_at && (
+                                  <Badge variant="outline" className="text-slate-600">
+                                    <Calendar className="h-3 w-3 mr-1" />
+                                    Sent: {formatDate(invite.created_at)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => cancelInvite(invite.id)}
+                              className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200"
+                              title="Cancel invite"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'training' && (
           <div className="space-y-4">
             {trainings.map((training) => (
-              <Card key={training.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
+              <Card key={training.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-slate-900">{training.title}</h3>
-                      <p className="text-sm text-slate-600 mb-2">{training.description}</p>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">{training.title}</h3>
+                      <p className="text-sm text-slate-600 mb-3">{training.description}</p>
                       <div className="flex items-center gap-4 text-sm text-slate-500">
                         <span>Duration: {training.duration}</span>
                         <span>Level: {training.level}</span>
@@ -673,10 +856,10 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge className={getStatusColor(training.status)}>
+                      <Badge className={`${getStatusColor(training.status)} border`}>
                         {training.status}
                       </Badge>
-                      <Button variant="outline" size="sm" className="transition-all duration-200">
+                      <Button variant="outline" size="sm" className="transition-all duration-200 hover:bg-slate-100">
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
@@ -690,12 +873,12 @@ export default function AdminPage() {
         {activeTab === 'rfqs' && (
           <div className="space-y-4">
             {rfqs.map((rfq) => (
-              <Card key={rfq.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
+              <Card key={rfq.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-slate-900">{rfq.title}</h3>
-                      <p className="text-sm text-slate-600 mb-2">{rfq.client} - {rfq.email}</p>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">{rfq.title}</h3>
+                      <p className="text-sm text-slate-600 mb-3">{rfq.client} - {rfq.email}</p>
                       <div className="flex items-center gap-4 text-sm text-slate-500">
                         <span>Value: {rfq.estimatedValue}</span>
                         <span>Due: {formatDate(rfq.dueDate)}</span>
@@ -703,13 +886,13 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge className={getStatusColor(rfq.status)}>
+                      <Badge className={`${getStatusColor(rfq.status)} border`}>
                         {rfq.status}
                       </Badge>
-                      <Badge className={getPriorityColor(rfq.priority)}>
+                      <Badge className={`${getPriorityColor(rfq.priority)} border`}>
                         {rfq.priority}
                       </Badge>
-                      <Button variant="outline" size="sm" className="transition-all duration-200">
+                      <Button variant="outline" size="sm" className="transition-all duration-200 hover:bg-slate-100">
                         <Eye className="h-4 w-4" />
                       </Button>
                     </div>
@@ -723,12 +906,12 @@ export default function AdminPage() {
         {activeTab === 'news' && (
           <div className="space-y-4">
             {newsArticles.map((article) => (
-              <Card key={article.id} className="border-0 shadow-sm hover:shadow-lg transition-all">
+              <Card key={article.id} className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-slate-900">{article.title}</h3>
-                      <p className="text-sm text-slate-600 mb-2">{article.excerpt}</p>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">{article.title}</h3>
+                      <p className="text-sm text-slate-600 mb-3">{article.excerpt}</p>
                       <div className="flex items-center gap-4 text-sm text-slate-500">
                         <span>Author: {article.author}</span>
                         <span>Category: {article.category}</span>
@@ -737,10 +920,10 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge className={getStatusColor(article.status)}>
+                      <Badge className={`${getStatusColor(article.status)} border`}>
                         {article.status}
                       </Badge>
-                      <Button variant="outline" size="sm" className="transition-all duration-200">
+                      <Button variant="outline" size="sm" className="transition-all duration-200 hover:bg-slate-100">
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
@@ -754,15 +937,17 @@ export default function AdminPage() {
 
       {/* Add User Modal */}
       {showAddUserModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="flex flex-row items-center justify-between">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl border-0 bg-white">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 pb-4">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <div className="p-2 bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg">
+                    <Plus className="h-5 w-5 text-white" />
+                  </div>
                   Add User
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="mt-1">
                   Invite a new user by email
                 </CardDescription>
               </div>
@@ -770,13 +955,14 @@ export default function AdminPage() {
                 variant="ghost"
                 size="sm"
                 onClick={handleCloseInviteModal}
+                className="hover:bg-slate-100"
               >
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 pt-6">
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Email Address</label>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Email Address</label>
                 <Input 
                   placeholder="user@example.com" 
                   value={inviteEmail}
@@ -785,12 +971,13 @@ export default function AdminPage() {
                     setInviteError('')
                   }}
                   disabled={inviteLoading}
+                  className="h-11 border-slate-200 focus:border-slate-900 focus:ring-slate-900"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Role</label>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Role</label>
                 <select 
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full h-11 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 bg-white"
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as 'admin' | 'client')}
                   disabled={inviteLoading}
@@ -802,28 +989,29 @@ export default function AdminPage() {
 
               {inviteError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                  <XCircle className="h-4 w-4" />
+                  <XCircle className="h-4 w-4 flex-shrink-0" />
                   <span>{inviteError}</span>
                 </div>
               )}
 
               {inviteSuccess && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
                   <span>Invite sent successfully! A temporary password has been emailed.</span>
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <Button 
                   variant="outline" 
                   onClick={handleCloseInviteModal}
                   disabled={inviteLoading}
+                  className="hover:bg-slate-100"
                 >
                   Cancel
                 </Button>
                 <Button 
-                  className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200"
+                  className="bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                   onClick={handleSendInvite}
                   disabled={inviteLoading || inviteSuccess}
                 >
@@ -847,15 +1035,17 @@ export default function AdminPage() {
 
       {/* Add Training Modal */}
       {showAddTrainingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg">
-            <CardHeader className="flex flex-row items-center justify-between">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg shadow-2xl border-0 bg-white">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 pb-4">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <div className="p-2 bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg">
+                    <Plus className="h-5 w-5 text-white" />
+                  </div>
                   Add Training
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="mt-1">
                   Create a new training course
                 </CardDescription>
               </div>
@@ -863,31 +1053,32 @@ export default function AdminPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowAddTrainingModal(false)}
+                className="hover:bg-slate-100"
               >
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 pt-6">
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Title</label>
-                <Input placeholder="Training course title" />
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Title</label>
+                <Input placeholder="Training course title" className="h-11" />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Description</label>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Description</label>
                 <textarea 
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
                   rows={3}
                   placeholder="Course description"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">Duration</label>
-                  <Input placeholder="4 hours" />
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Duration</label>
+                  <Input placeholder="4 hours" className="h-11" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">Level</label>
-                  <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Level</label>
+                  <select className="w-full h-11 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 bg-white">
                     <option value="Beginner">Beginner</option>
                     <option value="Intermediate">Intermediate</option>
                     <option value="Advanced">Advanced</option>
@@ -896,19 +1087,19 @@ export default function AdminPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">Category</label>
-                  <Input placeholder="Operations" />
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Category</label>
+                  <Input placeholder="Operations" className="h-11" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">Instructor</label>
-                  <Input placeholder="Instructor name" />
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Instructor</label>
+                  <Input placeholder="Instructor name" className="h-11" />
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowAddTrainingModal(false)}>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <Button variant="outline" onClick={() => setShowAddTrainingModal(false)} className="hover:bg-slate-100">
                   Cancel
                 </Button>
-                <Button className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200">
+                <Button className="bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
                   Create Training
                 </Button>
               </div>
@@ -919,15 +1110,17 @@ export default function AdminPage() {
 
       {/* Add News Modal */}
       {showAddNewsModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg">
-            <CardHeader className="flex flex-row items-center justify-between">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg shadow-2xl border-0 bg-white">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 pb-4">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <div className="p-2 bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg">
+                    <Plus className="h-5 w-5 text-white" />
+                  </div>
                   Add News Article
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="mt-1">
                   Create a new news article
                 </CardDescription>
               </div>
@@ -935,27 +1128,28 @@ export default function AdminPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowAddNewsModal(false)}
+                className="hover:bg-slate-100"
               >
                 <X className="h-4 w-4" />
               </Button>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 pt-6">
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Title</label>
-                <Input placeholder="Article title" />
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Title</label>
+                <Input placeholder="Article title" className="h-11" />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-1 block">Excerpt</label>
+                <label className="text-sm font-medium text-slate-700 mb-2 block">Excerpt</label>
                 <textarea 
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
                   rows={3}
                   placeholder="Article excerpt"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">Category</label>
-                  <select className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Category</label>
+                  <select className="w-full h-11 px-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 bg-white">
                     <option value="Product Updates">Product Updates</option>
                     <option value="Company News">Company News</option>
                     <option value="Awards">Awards</option>
@@ -963,15 +1157,15 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">Author</label>
-                  <Input placeholder="Author name" />
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">Author</label>
+                  <Input placeholder="Author name" className="h-11" />
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowAddNewsModal(false)}>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <Button variant="outline" onClick={() => setShowAddNewsModal(false)} className="hover:bg-slate-100">
                   Cancel
                 </Button>
-                <Button className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200">
+                <Button className="bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
                   Create Article
                 </Button>
               </div>
