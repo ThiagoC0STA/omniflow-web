@@ -71,6 +71,17 @@ export default function AIAssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  // Remove markdown formatting from text
+  const cleanMarkdown = (text: string): string => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold (**text** -> text)
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic (*text* -> text)
+      .replace(/__(.*?)__/g, '$1') // Remove bold (__text__ -> text)
+      .replace(/_(.*?)_/g, '$1') // Remove italic (_text_ -> text)
+      .replace(/~~(.*?)~~/g, '$1') // Remove strikethrough (~~text~~ -> text)
+      .replace(/`(.*?)`/g, '$1') // Remove inline code (`text` -> text)
+  }
+
   useEffect(() => {
     scrollToBottom()
   }, [messages])
@@ -95,7 +106,7 @@ export default function AIAssistantPage() {
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: response.text,
+        text: cleanMarkdown(response.text),
         isUser: false,
         timestamp: new Date(),
       }
