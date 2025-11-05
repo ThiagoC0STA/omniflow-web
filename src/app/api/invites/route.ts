@@ -68,12 +68,41 @@ export async function POST(req: NextRequest) {
       // User exists: send password reset email instead
       createdUserId = existing.id;
 
-      // Update role if needed
-      const { error: roleError } = await supabaseAdmin
+      // Check if user profile exists in users table
+      const { data: existingProfile } = await supabaseAdmin
         .from("users")
-        .update({ role: role as "admin" | "client" })
-        .eq("id", existing.id);
-      if (roleError) console.error("Error updating role:", roleError);
+        .select("id")
+        .eq("id", existing.id)
+        .single();
+
+      if (existingProfile) {
+        // Profile exists, just update role
+        const { error: roleError } = await supabaseAdmin
+          .from("users")
+          .update({ role: role as "admin" | "client" })
+          .eq("id", existing.id);
+        if (roleError) console.error("Error updating role:", roleError);
+      } else {
+        // Profile doesn't exist, create it
+        const { error: profileError } = await supabaseAdmin
+          .from("users")
+          .insert({
+            id: existing.id,
+            email,
+            role: role as "admin" | "client",
+          });
+        if (profileError) {
+          console.error("Error creating profile:", profileError);
+          // If insert fails due to duplicate, try update instead
+          if (profileError.code === "23505") {
+            const { error: roleError } = await supabaseAdmin
+              .from("users")
+              .update({ role: role as "admin" | "client" })
+              .eq("id", existing.id);
+            if (roleError) console.error("Error updating role:", roleError);
+          }
+        }
+      }
 
       // Send password reset email using Supabase's native system
       const redirectUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -107,16 +136,43 @@ export async function POST(req: NextRequest) {
       if (inviteError) throw inviteError;
       createdUserId = inviteData?.user?.id;
 
-      // Create profile row
+      // The trigger should create the profile automatically, but we need to update the role
+      // Try to update first (if trigger created it), if not exists, then insert
       if (createdUserId) {
-        const { error: profileError } = await supabaseAdmin
+        // First, try to update (in case trigger already created it)
+        const { data: updateData, error: updateError } = await supabaseAdmin
           .from("users")
-          .insert({
-            id: createdUserId,
-            email,
-            role: role as "admin" | "client",
-          });
-        if (profileError) throw profileError;
+          .update({ role: role as "admin" | "client", email })
+          .eq("id", createdUserId)
+          .select()
+          .single();
+
+        // If update didn't find a row, try to insert
+        if (updateError && updateError.code === "PGRST116") {
+          // Row doesn't exist, try to insert
+          const { error: insertError } = await supabaseAdmin
+            .from("users")
+            .insert({
+              id: createdUserId,
+              email,
+              role: role as "admin" | "client",
+            });
+          
+          // If insert fails due to duplicate (race condition with trigger), try update again
+          if (insertError && insertError.code === "23505") {
+            const { error: retryUpdateError } = await supabaseAdmin
+              .from("users")
+              .update({ role: role as "admin" | "client", email })
+              .eq("id", createdUserId);
+            if (retryUpdateError) {
+              console.error("Error updating role after retry:", retryUpdateError);
+            }
+          } else if (insertError) {
+            console.error("Error creating profile:", insertError);
+          }
+        } else if (updateError) {
+          console.error("Error updating role:", updateError);
+        }
       }
     }
 
