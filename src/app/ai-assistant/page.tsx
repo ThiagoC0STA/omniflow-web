@@ -47,7 +47,7 @@ export default function AIAssistantPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hello! I'm your Omni AI Assistant powered by Chatbase. How can I help you today?",
+      text: "Hello! I'm your Omni AI Assistant. How can I help you today?",
       isUser: false,
       timestamp: new Date(),
     },
@@ -135,7 +135,7 @@ export default function AIAssistantPage() {
     setMessages([
       {
         id: '1',
-        text: "Hello! I'm your Omni AI Assistant powered by Chatbase. How can I help you today?",
+        text: "Hello! I'm your Omni AI Assistant. How can I help you today?",
         isUser: false,
         timestamp: new Date(),
       },    
@@ -162,7 +162,7 @@ export default function AIAssistantPage() {
                 <div className="w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-green-100"></div>
                 <div>
                   <h1 className="text-xl font-bold text-slate-900">AI Assistant</h1>
-                  <p className="text-sm text-slate-600">Powered by Chatbase • Online</p>
+                  <p className="text-sm text-slate-600">Online</p>
                 </div>
               </div>
             </div>
