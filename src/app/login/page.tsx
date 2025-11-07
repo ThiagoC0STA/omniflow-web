@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,43 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setUser, setMustChangePassword } = useAuthStore()
+  const hashHandledRef = useRef(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || hashHandledRef.current) {
+      return
+    }
+
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const accessToken = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+
+    if (accessToken && refreshToken) {
+      hashHandledRef.current = true
+
+      const type = hashParams.get('type') || 'invite'
+      const emailFromHash = hashParams.get('email')
+
+      const targetParams = new URLSearchParams({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        type,
+      })
+
+      if (emailFromHash) {
+        targetParams.set('email', emailFromHash)
+      }
+
+      supabase.auth
+        .signOut({ scope: 'local' })
+        .catch((signOutError) => {
+          console.warn('Error signing out before redirect:', signOutError)
+        })
+        .finally(() => {
+          window.location.replace(`/set-password?${targetParams.toString()}`)
+        })
+    }
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
