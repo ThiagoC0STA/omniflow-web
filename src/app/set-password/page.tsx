@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,7 @@ function SetPasswordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setMustChangePassword } = useAuthStore()
+  const sessionAppliedRef = useRef(false)
 
   useEffect(() => {
     // Check both hash (from direct Supabase redirect) and query params
@@ -34,37 +35,60 @@ function SetPasswordContent() {
     const email = searchParams.get('email') || hashParams.get('email');
     const refreshToken = searchParams.get('refresh_token') || hashParams.get('refresh_token');
 
-    // If we have tokens in hash, set the session first
-    if (hashParams.get('access_token') && hashParams.get('refresh_token')) {
-      const setSession = async () => {
-        try {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: hashParams.get('access_token')!,
-            refresh_token: hashParams.get('refresh_token')!,
-          });
+    const applySession = async (accessToken: string, refreshTokenValue: string): Promise<boolean> => {
+      if (sessionAppliedRef.current) {
+        return true;
+      }
 
-          if (sessionError) {
-            console.error('Error setting session:', sessionError);
-            setMessage({ type: 'error', text: 'Failed to authenticate. Please try again.' });
-            return;
-          }
-
-          // Session set successfully, now redirect to set-password with query params
-          const params = new URLSearchParams({
-            access_token: hashParams.get('access_token')!,
-            type: hashParams.get('type') || 'invite',
-          });
-          if (email) params.append('email', email);
-          if (hashParams.get('refresh_token')) params.append('refresh_token', hashParams.get('refresh_token')!);
-          
-          router.replace(`/set-password?${params.toString()}`);
-        } catch (err) {
-          console.error('Error in setSession:', err);
-          setMessage({ type: 'error', text: 'Failed to authenticate. Please try again.' });
+      try {
+        const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+        if (signOutError) {
+          console.warn('Error signing out existing session:', signOutError);
         }
+      } catch (signOutErr) {
+        console.warn('Error signing out existing session:', signOutErr);
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshTokenValue,
+      });
+
+      if (sessionError) {
+        console.error('Error setting session:', sessionError);
+        setMessage({ type: 'error', text: 'Failed to authenticate. Please try again.' });
+        sessionAppliedRef.current = false;
+        return false;
+      }
+
+      sessionAppliedRef.current = true;
+      return true;
+    };
+
+    // If we have tokens in hash, override session and normalize URL
+    if (hashParams.get('access_token') && hashParams.get('refresh_token')) {
+      const setSessionFromHash = async () => {
+        const accessTokenFromHash = hashParams.get('access_token')!;
+        const refreshTokenFromHash = hashParams.get('refresh_token')!;
+        const success = await applySession(accessTokenFromHash, refreshTokenFromHash);
+        if (!success) {
+          return;
+        }
+
+        const params = new URLSearchParams({
+          access_token: accessTokenFromHash,
+          type: hashParams.get('type') || 'invite',
+        });
+
+        if (email) {
+          params.append('email', email);
+        }
+        params.append('refresh_token', refreshTokenFromHash);
+
+        router.replace(`/set-password?${params.toString()}`);
       };
 
-      setSession();
+      setSessionFromHash();
       return;
     }
 
@@ -84,26 +108,15 @@ function SetPasswordContent() {
     }
 
     // Set session if we have access_token and refresh_token in query params
-    if (token && refreshToken && type === 'invite') {
-      const setSession = async () => {
-        try {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: token,
-            refresh_token: refreshToken,
-          });
-
-          if (sessionError) {
-            console.error('Error setting session:', sessionError);
-            setMessage({ type: 'error', text: 'Failed to authenticate. Please try again.' });
-          } else {
-            console.log('Session set successfully');
-          }
-        } catch (err) {
-          console.error('Error in setSession:', err);
+    if (token && refreshToken && (type === 'invite' || type === 'recovery') && !sessionAppliedRef.current) {
+      const setSessionFromQuery = async () => {
+        const success = await applySession(token, refreshToken);
+        if (success) {
+          console.log('Session set successfully');
         }
       };
 
-      setSession();
+      setSessionFromQuery();
     }
 
     if (type === 'recovery' && token) {
