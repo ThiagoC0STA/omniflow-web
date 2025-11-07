@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -150,6 +150,45 @@ export default function PortalPage() {
   const { user, signOut } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
+  const hashHandledRef = useRef(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || hashHandledRef.current) {
+      return
+    }
+
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const accessToken = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+
+    if (accessToken && refreshToken) {
+      hashHandledRef.current = true
+
+      const type = hashParams.get('type') || 'invite'
+      const email = hashParams.get('email')
+
+      const targetParams = new URLSearchParams({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        type,
+      })
+
+      if (email) {
+        targetParams.set('email', email)
+      }
+
+      const targetUrl = `/set-password?${targetParams.toString()}`
+
+      supabase.auth
+        .signOut({ scope: 'local' })
+        .catch((signOutError) => {
+          console.warn('Error signing out before redirect:', signOutError)
+        })
+        .finally(() => {
+          window.location.replace(targetUrl)
+        })
+    }
+  }, [])
 
   const handleSignOut = async () => {
     try {
