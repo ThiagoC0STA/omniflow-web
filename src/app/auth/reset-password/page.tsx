@@ -3,6 +3,8 @@
 import { useEffect, Suspense, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { Logo } from "@/components/Logo";
+import { Loader2 } from "lucide-react";
 
 function ResetPasswordHandler() {
   const router = useRouter();
@@ -465,20 +467,38 @@ function ResetPasswordHandler() {
   // Default loading/processing message
   if (isProcessing) {
     return (
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "center", 
-        alignItems: "center", 
-        height: "100vh",
-        flexDirection: "column",
-        fontFamily: "system-ui",
-        gap: "20px"
-      }}>
-        <div style={{ fontSize: "18px", color: "#666" }}>
-          Processing password reset link...
-        </div>
-        <div style={{ fontSize: "14px", color: "#999" }}>
-          Please wait
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmM2Y0ZjYiIGZpbGwtb3BhY2l0eT0iMC40Ij48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-40"></div>
+        
+        <div className="relative z-10 text-center px-4">
+          <div className="mb-8 flex justify-center">
+            <Logo width={180} height={63} className="mx-auto" />
+          </div>
+          
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-12 max-w-md mx-auto">
+            <div className="flex flex-col items-center gap-6">
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold text-slate-900">
+                  Processing password reset link...
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Please wait while we verify your request
+                </p>
+              </div>
+              
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -486,20 +506,38 @@ function ResetPasswordHandler() {
 
   // Default redirect message (for mobile)
   return (
-    <div style={{ 
-      display: "flex", 
-      justifyContent: "center", 
-      alignItems: "center", 
-      height: "100vh",
-      flexDirection: "column",
-      fontFamily: "system-ui",
-      gap: "20px"
-    }}>
-      <div style={{ fontSize: "18px", color: "#666" }}>
-        Redirecting to Omniflow App...
-      </div>
-      <div style={{ fontSize: "14px", color: "#999" }}>
-        Please wait while we open the app
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmM2Y0ZjYiIGZpbGwtb3BhY2l0eT0iMC40Ij48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-40"></div>
+      
+      <div className="relative z-10 text-center px-4">
+        <div className="mb-8 flex justify-center">
+          <Logo width={180} height={63} className="mx-auto" />
+        </div>
+        
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-12 max-w-md mx-auto">
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-900">
+                Redirecting to Omniflow App...
+              </h2>
+              <p className="text-sm text-slate-600">
+                Please wait while we open the app
+              </p>
+            </div>
+            
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-pulse" style={{ width: '80%' }}></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -508,17 +546,13 @@ function ResetPasswordHandler() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div style={{ 
-        display: "flex", 
-        justifyContent: "center", 
-        alignItems: "center", 
-        height: "100vh",
-        flexDirection: "column",
-        fontFamily: "system-ui",
-        gap: "20px"
-      }}>
-        <div style={{ fontSize: "18px", color: "#666" }}>
-          Loading...
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mb-6 flex justify-center">
+            <Logo width={180} height={63} className="mx-auto" />
+          </div>
+          <div className="inline-block w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+          <p className="mt-4 text-slate-600">Loading...</p>
         </div>
       </div>
     }>
