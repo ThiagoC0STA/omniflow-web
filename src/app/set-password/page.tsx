@@ -19,6 +19,7 @@ function SetPasswordContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
+  const [linkType, setLinkType] = useState<'invite' | 'recovery' | null>(null)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -77,6 +78,8 @@ function SetPasswordContent() {
 
         const params = new URLSearchParams({
           access_token: accessTokenFromHash,
+          // Supabase always sends type in hash (invite or recovery)
+          // If missing, check if it's a new user (invite) or existing user (recovery)
           type: hashParams.get('type') || 'invite',
         });
 
@@ -119,6 +122,14 @@ function SetPasswordContent() {
       setSessionFromQuery();
     }
 
+    // Store the link type for conditional rendering
+    if (type === 'recovery' || type === 'invite') {
+      setLinkType(type)
+    } else if (token && !type) {
+      // If we have a token but no type, assume recovery (from forgot password)
+      setLinkType('recovery')
+    }
+
     if (type === 'recovery' && token) {
       setMessage({ type: 'info', text: 'Please set your new password to complete the recovery process.' })
     } else if (type === 'invite' && token) {
@@ -155,7 +166,8 @@ function SetPasswordContent() {
     e.preventDefault()
     setMessage(null)
 
-    if (!name.trim()) {
+    // Only require name for invite type
+    if (linkType === 'invite' && !name.trim()) {
       setMessage({ type: 'error', text: 'Please enter your name.' })
       return
     }
@@ -184,21 +196,26 @@ function SetPasswordContent() {
         throw new Error('User not found')
       }
 
-      // Update user profile with name
-      const { error: profileError } = await supabase
-        .from('users')
-        .update({ 
-          name: name.trim(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', authUser.id)
+      // Only update name for invite type (new users)
+      if (linkType === 'invite' && name.trim()) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .update({ 
+            name: name.trim(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', authUser.id)
 
-      if (profileError) {
-        console.error('Error updating profile:', profileError)
-        // Don't fail the whole operation if profile update fails
-        setMessage({ type: 'success', text: 'Password updated successfully! Redirecting to portal...' })
+        if (profileError) {
+          console.error('Error updating profile:', profileError)
+          // Don't fail the whole operation if profile update fails
+          setMessage({ type: 'success', text: 'Password updated successfully! Redirecting to portal...' })
+        } else {
+          setMessage({ type: 'success', text: 'Password and profile updated successfully! Redirecting to portal...' })
+        }
       } else {
-        setMessage({ type: 'success', text: 'Password and profile updated successfully! Redirecting to portal...' })
+        // For recovery, just update password
+        setMessage({ type: 'success', text: 'Password updated successfully! Redirecting to portal...' })
       }
 
       setMustChangePassword(false)
@@ -244,11 +261,13 @@ function SetPasswordContent() {
                   <Shield className="h-6 w-6 text-purple-600" />
                 </div>
                 <CardTitle className="text-2xl font-bold text-slate-900">
-                  Set Your Password
+                  {linkType === 'recovery' ? 'Reset Your Password' : 'Set Your Password'}
                 </CardTitle>
               </div>
               <CardDescription className="text-slate-600">
-                Create a secure password for your account
+                {linkType === 'recovery' 
+                  ? 'Enter a new secure password for your account'
+                  : 'Create a secure password for your account'}
               </CardDescription>
             </CardHeader>
             
@@ -261,21 +280,23 @@ function SetPasswordContent() {
               )}
               
               <form onSubmit={handleSetPassword} className="space-y-6">
-                <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium text-slate-700 flex items-center space-x-2">
-                    <User className="h-4 w-4" />
-                    <span>Full Name</span>
-                  </label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="h-12 border-slate-200 focus:border-purple-500 focus:ring-purple-500"
-                  />
-                </div>
+                {linkType === 'invite' && (
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="text-sm font-medium text-slate-700 flex items-center space-x-2">
+                      <User className="h-4 w-4" />
+                      <span>Full Name</span>
+                    </label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className="h-12 border-slate-200 focus:border-purple-500 focus:ring-purple-500"
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label htmlFor="password" className="text-sm font-medium text-slate-700 flex items-center space-x-2">

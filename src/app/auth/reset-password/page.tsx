@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, Suspense, useState } from "react";
+import { useEffect, Suspense, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -12,8 +12,9 @@ function ResetPasswordHandler() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(true);
 
-  useEffect(() => {
+  const processHashAndRedirect = useCallback(async () => {
     // Extract token and other params from Supabase's redirect URL
     // Supabase sends token in HASH, but we also check query params (from page.tsx redirect)
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -22,11 +23,114 @@ function ResetPasswordHandler() {
     console.log('🔍 HASH PARAMS:', Array.from(hashParams.entries()));
     console.log('🔍 WINDOW LOCATION:', window.location.href);
     
+    // Check for verification code in query params (Supabase recovery flow)
+    const code = searchParams.get("code");
+    const typeFromUrl = searchParams.get("type") || "recovery";
+    
+    // If we have a code, we need to exchange it for a session
+    // Supabase sends a code in the URL that needs to be exchanged for tokens
+    if (code) {
+      console.log('🔍 Found verification code, exchanging for session...');
+      setIsProcessing(true);
+      
+      try {
+        // Try exchangeCodeForSession first (for PKCE flow)
+        // If that fails, try verifyOtp (for recovery/invite flow)
+        let session = null;
+        let userEmail = null;
+        
+        // Method 1: Try exchangeCodeForSession (PKCE)
+        try {
+          console.log('🔍 Trying exchangeCodeForSession...');
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (!error && data.session) {
+            console.log('🔍 Successfully exchanged code using exchangeCodeForSession');
+            session = data.session;
+            userEmail = data.user?.email;
+          } else {
+            console.log('🔍 exchangeCodeForSession failed, trying verifyOtp...', error?.message);
+          }
+        } catch (exchangeError: any) {
+          console.log('🔍 exchangeCodeForSession error (expected for recovery flow):', exchangeError.message);
+        }
+        
+        // Method 2: Check if Supabase SSR already processed the code automatically
+        if (!session) {
+          console.log('🔍 Checking if Supabase SSR processed code automatically...');
+          const { data: { session: existingSession }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (existingSession && !sessionError) {
+            console.log('🔍 Found session from Supabase SSR (code was processed automatically)');
+            session = existingSession;
+            userEmail = existingSession.user?.email;
+          }
+        }
+        
+        // Method 3: Try verifyOtp if still no session
+        if (!session) {
+          console.log('🔍 Trying verifyOtp with type:', typeFromUrl);
+          try {
+            const { data, error } = await supabase.auth.verifyOtp({
+              token_hash: code,
+              type: typeFromUrl === "invite" ? "invite" : "recovery",
+            });
+            
+            if (error) {
+              console.error('Error verifying OTP:', error);
+              // Don't fail immediately - wait for auth state change listener
+              // The listener will handle the redirect if Supabase processes it
+              console.log('🔍 verifyOtp failed, will wait for auth state change...');
+              return; // Exit early, let the listener handle it
+            } else if (data.session) {
+              console.log('🔍 Successfully verified OTP');
+              session = data.session;
+              userEmail = data.user?.email;
+            }
+          } catch (verifyError: any) {
+            console.error('Error in verifyOtp:', verifyError);
+            // Don't fail immediately - wait for auth state change listener
+            return; // Exit early, let the listener handle it
+          }
+        }
+        
+        // If we have a session, redirect to set-password
+        if (session) {
+          console.log('🔍 Got session, redirecting to set-password');
+          const params = new URLSearchParams({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            type: typeFromUrl,
+          });
+          
+          if (userEmail) {
+            params.append("email", userEmail);
+          }
+          
+          // Use window.location.replace to prevent middleware from intercepting
+          window.location.replace(`/set-password?${params.toString()}`);
+          return;
+        } else {
+          // No session found, redirect to login with error
+          console.error('No session created from code');
+          router.push("/login?error=" + encodeURIComponent("Failed to process reset link. Please try again."));
+          return;
+        }
+      } catch (err: any) {
+        console.error('Error processing code:', err);
+        router.push("/login?error=" + encodeURIComponent(err.message || "Failed to process reset link"));
+        return;
+      }
+    }
+    
     // Get from hash first (Supabase sends it here), then fallback to query params
     const token = hashParams.get("access_token") || searchParams.get("access_token") ||
                   hashParams.get("token_hash") || searchParams.get("token_hash") || 
                   searchParams.get("token");
     let email = hashParams.get("email") || searchParams.get("email");
+    // For password reset emails, Supabase sends type=recovery in the hash
+    // For invite emails, Supabase sends type=invite
+    // Default to recovery if not specified (forgot password flow)
     const type = hashParams.get("type") || searchParams.get("type") || "recovery";
     const error = hashParams.get("error") || searchParams.get("error");
     const errorCode = hashParams.get("error_code") || searchParams.get("error_code");
@@ -121,14 +225,95 @@ function ResetPasswordHandler() {
         router.push(`/set-password?${params.toString()}`);
       }
     } else {
-      // No token, redirect based on platform
-      if (shouldRedirectToApp) {
-        window.location.href = "omniflow://login";
-      } else {
-        router.push("/login");
-      }
+      // No token found yet - don't redirect immediately, wait for hash to be processed
+      // The useEffect will call this function again when hash changes
+      console.log("No token found yet, waiting for Supabase to process redirect...");
+      setIsProcessing(true);
     }
   }, [router, searchParams]);
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    const typeFromUrl = searchParams.get("type") || "recovery";
+    
+    // If we have a code, set up listener AND process immediately
+    if (code) {
+      console.log('🔍 Setting up auth state listener as backup...');
+      
+      // Set up listener as backup in case Supabase processes code asynchronously
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('🔍 Auth state changed:', event, session ? 'has session' : 'no session');
+        
+        // Only handle if we got a session and haven't redirected yet
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && isProcessing) {
+          console.log('🔍 Session created via auth state change, redirecting to set-password');
+          const email = session.user?.email;
+          
+          const params = new URLSearchParams({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            type: typeFromUrl,
+          });
+          
+          if (email) {
+            params.append("email", email);
+          }
+          
+          subscription.unsubscribe();
+          setIsProcessing(false);
+          window.location.replace(`/set-password?${params.toString()}`);
+        }
+      });
+      
+      // Process immediately (this will try to exchange code)
+      processHashAndRedirect();
+      
+      // Cleanup
+      return () => {
+        subscription.unsubscribe();
+      };
+    } else {
+      // No code, use normal processing
+      const handleHashChange = () => {
+        console.log('Hash changed, reprocessing...');
+        processHashAndRedirect();
+      };
+
+      window.addEventListener('hashchange', handleHashChange);
+      processHashAndRedirect();
+
+      const checkInterval = setInterval(() => {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hasToken = hashParams.get("access_token") || hashParams.get("token_hash");
+        
+        if (hasToken && isProcessing) {
+          console.log('Token found in hash, reprocessing...');
+          processHashAndRedirect();
+          clearInterval(checkInterval);
+        }
+      }, 500);
+
+      const timeoutId = setTimeout(() => {
+        if (isProcessing) {
+          console.log("No token found after 5 seconds, redirecting to login");
+          setIsProcessing(false);
+          const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(window.navigator.userAgent);
+          if (isMobileDevice) {
+            window.location.href = "omniflow://login";
+          } else {
+            router.push("/login");
+          }
+        }
+        clearInterval(checkInterval);
+      }, 5000);
+
+      return () => {
+        window.removeEventListener('hashchange', handleHashChange);
+        clearInterval(checkInterval);
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [router, searchParams, isProcessing, processHashAndRedirect]);
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,7 +462,29 @@ function ResetPasswordHandler() {
     );
   }
 
-  // Default redirect message
+  // Default loading/processing message
+  if (isProcessing) {
+    return (
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "center", 
+        alignItems: "center", 
+        height: "100vh",
+        flexDirection: "column",
+        fontFamily: "system-ui",
+        gap: "20px"
+      }}>
+        <div style={{ fontSize: "18px", color: "#666" }}>
+          Processing password reset link...
+        </div>
+        <div style={{ fontSize: "14px", color: "#999" }}>
+          Please wait
+        </div>
+      </div>
+    );
+  }
+
+  // Default redirect message (for mobile)
   return (
     <div style={{ 
       display: "flex", 
