@@ -156,7 +156,7 @@ function LoginForm() {
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 to-slate-800/50"></div>
           <div className="relative z-10 flex flex-col justify-center px-12 py-16">
             <div className="mb-8">
-              <Logo width={200} height={70} className="text-white mb-6" />
+              <Logo width={200} height={70} className="text-white mb-6" whiteLogo={true} />
               <h1 className="text-4xl font-bold text-white leading-tight mb-4">
                 Welcome to Your
                 <span className="block text-slate-200">Corporate Portal</span>
