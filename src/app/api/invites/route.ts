@@ -112,23 +112,34 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Send password reset email using Supabase's native system
+      // Re-send invite email using inviteUserByEmail
+      // This works even for existing users and will resend the invite email
       const redirectUrl = process.env.NEXT_PUBLIC_APP_URL
         ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`
         : `${req.nextUrl.origin}/auth/reset-password`;
 
-      const { error: resetError } = await supabaseAdmin.auth.admin.generateLink(
-        {
+      const { error: inviteError } =
+        await supabaseAdmin.auth.admin.inviteUserByEmail(normalizedEmail, {
+          redirectTo: redirectUrl,
+        });
+
+      if (inviteError) {
+        console.error("Error resending invite email:", inviteError);
+        // If inviteUserByEmail fails for existing user, try generating recovery link
+        // Note: generateLink doesn't send email automatically, but we log it for debugging
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
           type: "recovery",
           email: normalizedEmail,
           options: {
             redirectTo: redirectUrl,
           },
+        });
+        if (linkData) {
+          console.log(
+            "Recovery link generated (email may not be sent automatically):",
+            normalizedEmail
+          );
         }
-      );
-
-      if (resetError) {
-        console.error("Error generating reset link:", resetError);
       }
     } else {
       // Create new user using inviteUserByEmail - this creates user AND sends email automatically

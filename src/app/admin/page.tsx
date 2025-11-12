@@ -130,6 +130,12 @@ export default function AdminPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  
+  // Resend invite state
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null)
+  
+  // Delete invite state
+  const [deletingInviteId, setDeletingInviteId] = useState<string | null>(null)
 
   const adminCount = useMemo(
     () => users.filter((userItem) => userItem.role === 'admin').length,
@@ -458,11 +464,53 @@ export default function AdminPage() {
     }
   }
 
-  const cancelInvite = async (inviteId: string) => {
-    if (!confirm('Are you sure you want to cancel this invite?')) {
-      return
-    }
+  const resendInvite = async (invite: Invite) => {
+    setResendingInviteId(invite.id)
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        throw new Error('Session expired. Please log in again.')
+      }
 
+      // Get user role from users table if user exists
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('email', invite.email.toLowerCase())
+        .single()
+
+      const role = userData?.role || 'client'
+
+      const response = await fetch('/api/invites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: invite.email,
+          role: role,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to resend invite')
+      }
+
+      // Refresh invites to update the created_at timestamp
+      await fetchInvites()
+    } catch (error: any) {
+      console.error('Error resending invite:', error)
+      alert(error.message || 'Failed to resend invite')
+    } finally {
+      setResendingInviteId(null)
+    }
+  }
+
+  const deleteInvite = async (inviteId: string) => {
+    setDeletingInviteId(inviteId)
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !session) {
@@ -479,14 +527,16 @@ export default function AdminPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to cancel invite')
+        throw new Error(result.error || 'Failed to delete invite')
       }
 
       await fetchInvites()
       await fetchUsers()
-    } catch (error) {
-      console.error('Error canceling invite:', error)
-      alert('Failed to cancel invite')
+    } catch (error: any) {
+      console.error('Error deleting invite:', error)
+      alert(error.message || 'Failed to delete invite')
+    } finally {
+      setDeletingInviteId(null)
     }
   }
 
@@ -911,7 +961,36 @@ export default function AdminPage() {
                               </div>
                             </div>
                           </div>
-                          
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => resendInvite(invite)}
+                              disabled={resendingInviteId === invite.id || deletingInviteId === invite.id}
+                              className="text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-all duration-200"
+                              title="Resend invite"
+                            >
+                              {resendingInviteId === invite.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => deleteInvite(invite.id)}
+                              disabled={resendingInviteId === invite.id || deletingInviteId === invite.id}
+                              className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200"
+                              title="Delete invite"
+                            >
+                              {deletingInviteId === invite.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
