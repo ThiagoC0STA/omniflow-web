@@ -911,17 +911,7 @@ export default function AdminPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => cancelInvite(invite.id)}
-                              className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200"
-                              title="Cancel invite"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          
                         </div>
                       </CardContent>
                     </Card>
