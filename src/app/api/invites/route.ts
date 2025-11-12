@@ -58,13 +58,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Check if user already exists
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existing = existingUsers?.users?.find((u) => u.email === email);
+    const existing = existingUsers?.users?.find(
+      (u) => u.email?.toLowerCase() === normalizedEmail
+    );
 
     let createdUserId: string | undefined;
 
+    let isExistingUser = false;
+
     if (existing) {
+      isExistingUser = true;
+
       // User exists: send password reset email instead
       createdUserId = existing.id;
 
@@ -88,7 +96,7 @@ export async function POST(req: NextRequest) {
           .from("users")
           .insert({
             id: existing.id,
-            email,
+            email: normalizedEmail,
             role: role as "admin" | "client",
           });
         if (profileError) {
@@ -112,7 +120,7 @@ export async function POST(req: NextRequest) {
       const { error: resetError } = await supabaseAdmin.auth.admin.generateLink(
         {
           type: "recovery",
-          email: email,
+          email: normalizedEmail,
           options: {
             redirectTo: redirectUrl,
           },
@@ -129,7 +137,7 @@ export async function POST(req: NextRequest) {
         : `${req.nextUrl.origin}/auth/reset-password`;
 
       const { data: inviteData, error: inviteError } =
-        await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        await supabaseAdmin.auth.admin.inviteUserByEmail(normalizedEmail, {
           redirectTo: redirectUrl,
         });
 
@@ -140,9 +148,9 @@ export async function POST(req: NextRequest) {
       // Try to update first (if trigger created it), if not exists, then insert
       if (createdUserId) {
         // First, try to update (in case trigger already created it)
-        const { data: updateData, error: updateError } = await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from("users")
-          .update({ role: role as "admin" | "client", email })
+          .update({ role: role as "admin" | "client", email: normalizedEmail })
           .eq("id", createdUserId)
           .select()
           .single();
@@ -154,18 +162,24 @@ export async function POST(req: NextRequest) {
             .from("users")
             .insert({
               id: createdUserId,
-              email,
+              email: normalizedEmail,
               role: role as "admin" | "client",
             });
-          
+
           // If insert fails due to duplicate (race condition with trigger), try update again
           if (insertError && insertError.code === "23505") {
             const { error: retryUpdateError } = await supabaseAdmin
               .from("users")
-              .update({ role: role as "admin" | "client", email })
+              .update({
+                role: role as "admin" | "client",
+                email: normalizedEmail,
+              })
               .eq("id", createdUserId);
             if (retryUpdateError) {
-              console.error("Error updating role after retry:", retryUpdateError);
+              console.error(
+                "Error updating role after retry:",
+                retryUpdateError
+              );
             }
           } else if (insertError) {
             console.error("Error creating profile:", insertError);
@@ -185,8 +199,8 @@ export async function POST(req: NextRequest) {
     const { data: inviteData, error: inviteError } = await supabaseAdmin
       .from("invites")
       .insert({
-        email: email.trim(),
-        used: false,
+        email: normalizedEmail,
+        used: isExistingUser,
         created_by: user.id,
         token: inviteToken,
         expires_at: new Date(
@@ -209,6 +223,71 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error in invite API:", error);
+    return NextResponse.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (userError || !userData || userData.role !== "admin") {
+      return NextResponse.json(
+        { error: "Forbidden: Admin access required" },
+        { status: 403 }
+      );
+    }
+
+    const includeUsed = req.nextUrl.searchParams.get("includeUsed") === "true";
+
+    let query = supabaseAdmin
+      .from("invites")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!includeUsed) {
+      query = query.eq("used", false);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({
+      invites: (data || []).map((invite) => ({
+        ...invite,
+        email: invite.email?.toLowerCase() ?? invite.email,
+      })),
+    });
+  } catch (error: any) {
+    console.error("Error fetching invites:", error);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

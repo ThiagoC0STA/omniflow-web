@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,7 +93,7 @@ interface Invite {
 
 export default function AdminPage() {
   const router = useRouter()
-  const { user, signOut } = useAuthStore()
+  const { signOut } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'users' | 'training' | 'rfqs' | 'news'>('users')
   const [userSubTab, setUserSubTab] = useState<'active' | 'invites'>('active')
   const [showAddUserModal, setShowAddUserModal] = useState(false)
@@ -117,6 +117,11 @@ export default function AdminPage() {
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [inviteSuccess, setInviteSuccess] = useState(false)
+
+  const adminCount = useMemo(
+    () => users.filter((userItem) => userItem.role === 'admin').length,
+    [users]
+  )
 
   // Mock data for other tabs
   const trainings: Training[] = [
@@ -193,29 +198,38 @@ export default function AdminPage() {
   ]
 
   // Fetch users from database
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setUsersLoading(true)
     setUsersError('')
     
     try {
-      // Fetch users from our database (completed registrations)
-      // RLS policies should allow admins to see all users
-      const { data: dbUsers, error: dbError } = await supabase
-        .from('users')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-      if (dbError) {
-        throw dbError
+      if (sessionError || !session) {
+        throw new Error('Session expired. Please log in again.')
       }
 
-      // Transform database users to User interface
-      const transformedUsers: User[] = (dbUsers || []).map((dbUser: any) => ({
+      const response = await fetch('/api/users', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to load users')
+      }
+
+      const dbUsers = result.users || []
+
+      const transformedUsers: User[] = dbUsers.map((dbUser: any) => ({
         id: dbUser.id,
         name: dbUser.name || dbUser.email?.split('@')[0] || 'Unknown',
         email: dbUser.email,
         role: dbUser.role || 'client',
-        status: 'active',
+        status: (dbUser.status as User['status']) || 'active',
         createdAt: dbUser.created_at || dbUser.createdAt || new Date().toISOString(),
         lastLogin: dbUser.last_login || dbUser.lastLogin
       }))
@@ -227,37 +241,46 @@ export default function AdminPage() {
     } finally {
       setUsersLoading(false)
     }
-  }
+  }, [])
 
   // Fetch invites from database
-  const fetchInvites = async () => {
+  const fetchInvites = useCallback(async () => {
     setInvitesLoading(true)
     setInvitesError('')
     
     try {
-      const { data, error } = await supabase
-        .from('invites')
-        .select('*')
-        .eq('used', false)
-        .order('created_at', { ascending: false })
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-      if (error) {
-        throw error
+      if (sessionError || !session) {
+        throw new Error('Session expired. Please log in again.')
       }
 
-      setInvites(data || [])
+      const response = await fetch('/api/invites', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to load invites')
+      }
+
+      setInvites(result.invites || [])
     } catch (error: any) {
       console.error('Error fetching invites:', error)
       setInvitesError(error.message || 'Failed to load invites')
     } finally {
       setInvitesLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchUsers()
     fetchInvites()
-  }, [])
+  }, [fetchUsers, fetchInvites])
 
   const handleSignOut = async () => {
     try {
@@ -352,6 +375,11 @@ export default function AdminPage() {
       const userToToggle = users.find(u => u.id === userId)
       if (!userToToggle) return
 
+      if (userToToggle.role === 'admin' && adminCount <= 1) {
+        alert('At least one admin user is required.')
+        return
+      }
+
       const newRole = userToToggle.role === 'admin' ? 'client' : 'admin'
       
       // Update via regular client (RLS policies should allow admins to update)
@@ -371,6 +399,12 @@ export default function AdminPage() {
 
   const deleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return
+    }
+
+    const userToDelete = users.find(u => u.id === userId)
+    if (userToDelete?.role === 'admin' && adminCount <= 1) {
+      alert('At least one admin user is required.')
       return
     }
 
@@ -397,14 +431,26 @@ export default function AdminPage() {
     }
 
     try {
-      const { error } = await supabase
-        .from('invites')
-        .delete()
-        .eq('id', inviteId)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        throw new Error('Session expired. Please log in again.')
+      }
 
-      if (error) throw error
+      const response = await fetch(`/api/invites/${inviteId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to cancel invite')
+      }
 
       await fetchInvites()
+      await fetchUsers()
     } catch (error) {
       console.error('Error canceling invite:', error)
       alert('Failed to cancel invite')
@@ -447,6 +493,28 @@ export default function AdminPage() {
       day: 'numeric'
     })
   }
+
+  useEffect(() => {
+    setUsers(prev => {
+      let hasChanges = false
+
+      const nextUsers = prev.map(userItem => {
+        const hasPendingInvite = invites.some(
+          invite => invite.email.toLowerCase() === userItem.email.toLowerCase()
+        )
+        const nextStatus: User['status'] = hasPendingInvite ? 'pending' : 'active'
+
+        if (userItem.status === nextStatus) {
+          return userItem
+        }
+
+        hasChanges = true
+        return { ...userItem, status: nextStatus }
+      })
+
+      return hasChanges ? nextUsers : prev
+    })
+  }, [invites])
 
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -735,18 +803,10 @@ export default function AdminPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => toggleUserRole(userItem.id)}
-                          className="transition-all duration-200 hover:bg-slate-100"
-                          title={userItem.role === 'admin' ? 'Remove admin' : 'Make admin'}
-                        >
-                          {userItem.role === 'admin' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
                           onClick={() => deleteUser(userItem.id)}
-                          className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200"
+                          className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
                           title="Delete user"
+                          disabled={userItem.role === 'admin' && adminCount <= 1}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

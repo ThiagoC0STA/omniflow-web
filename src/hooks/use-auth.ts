@@ -3,16 +3,63 @@
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/auth-store";
 import type { User } from "@/types";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 export function useAuth() {
   const { user, setUser, setLoading, setMustChangePassword } = useAuthStore();
+
+  const markInvitesAsUsed = useCallback(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        return;
+      }
+
+      await fetch("/api/invites/mark-used", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+    } catch (error) {
+      console.error("useAuth: Error marking invite as used:", error);
+    }
+  }, []);
+
+  const fetchUserProfile = useCallback(
+    async (userId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .single();
+
+        if (error) {
+          console.error("Error fetching user profile:", error);
+          setLoading(false);
+          return;
+        }
+
+        setUser(data as User);
+        await markInvitesAsUsed();
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [markInvitesAsUsed, setLoading, setUser]
+  );
 
   useEffect(() => {
     // Get initial session
     supabase.auth
       .getSession()
-      .then(({ data: { session }, error }) => {
+      .then(({ data: { session } }) => {
         if (session?.user) {
           fetchUserProfile(session.user.id);
         } else {
@@ -37,29 +84,7 @@ export function useAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.error("Error fetching user profile:", error);
-        setLoading(false);
-        return;
-      }
-
-      setUser(data as User);
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchUserProfile, setLoading, setUser]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({

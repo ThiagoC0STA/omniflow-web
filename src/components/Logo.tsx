@@ -12,7 +12,7 @@ export const Logo: React.FC<LogoProps> = ({ width = 120, height = 42, className,
   return (
     <div className={`flex items-center ${className}`}>
       <Image
-        src={whiteLogo ? "/OmniWhite.webp" : "/logo.svg"}
+        src={whiteLogo ? "/OmniWhite.svg" : "/logo.svg"}
         alt="Omniflow Logo"
         width={width}
         height={height}
