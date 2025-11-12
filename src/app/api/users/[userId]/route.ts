@@ -60,7 +60,7 @@ async function assertAdmin(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ inviteId: string }> }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const adminCheck = await assertAdmin(request);
@@ -68,74 +68,69 @@ export async function DELETE(
       return adminCheck.errorResponse;
     }
 
-    const { inviteId } = await params;
+    const { userId } = await params;
 
-    const { data: invite, error: inviteError } = await supabaseAdmin
-      .from("invites")
-      .select("id, email, used")
-      .eq("id", inviteId)
+    // Get user email before deletion to check for invites
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("email, role")
+      .eq("id", userId)
       .single();
 
-    if (inviteError || !invite) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    if (userError || !userData) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { error: deleteInviteError } = await supabaseAdmin
-      .from("invites")
-      .delete()
-      .eq("id", inviteId);
-
-    if (deleteInviteError) {
-      throw deleteInviteError;
-    }
-
-    let removedUserId: string | null = null;
-    let authUserDeleted = false;
-
-    if (!invite.used) {
-      const { data: profile, error: profileError } = await supabaseAdmin
+    // Check if this is the last admin
+    if (userData.role === "admin") {
+      const { data: adminUsers, error: adminError } = await supabaseAdmin
         .from("users")
         .select("id")
-        .eq("email", invite.email)
-        .single();
+        .eq("role", "admin");
 
-      if (!profileError && profile) {
-        removedUserId = profile.id;
+      if (!adminError && adminUsers && adminUsers.length <= 1) {
+        return NextResponse.json(
+          { error: "Cannot delete the last admin user" },
+          { status: 400 }
+        );
+      }
+    }
 
-        const { error: deleteProfileError } = await supabaseAdmin
-          .from("users")
-          .delete()
-          .eq("id", profile.id);
+    // Delete invites associated with this user's email
+    if (userData.email) {
+      const normalizedEmail = userData.email.toLowerCase();
+      await supabaseAdmin
+        .from("invites")
+        .delete()
+        .or(`email.eq.${normalizedEmail},email.eq.${userData.email}`);
+    }
 
-        if (deleteProfileError && deleteProfileError.code !== "PGRST116") {
-          console.error(
-            "Error deleting user profile for invite:",
-            deleteProfileError
-          );
-        }
+    // Delete from users table
+    const { error: deleteUserError } = await supabaseAdmin
+      .from("users")
+      .delete()
+      .eq("id", userId);
 
-        const { error: deleteAuthError } =
-          await supabaseAdmin.auth.admin.deleteUser(profile.id);
-        if (deleteAuthError) {
-          if (deleteAuthError.message !== "User not found") {
-            console.error(
-              "Error deleting auth user for invite:",
-              deleteAuthError
-            );
-          }
-        } else {
-          authUserDeleted = true;
-        }
+    if (deleteUserError) {
+      throw deleteUserError;
+    }
+
+    // Delete from auth.users
+    const { error: deleteAuthError } =
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (deleteAuthError) {
+      // Log but don't fail if auth user doesn't exist
+      if (deleteAuthError.message !== "User not found") {
+        console.error("Error deleting auth user:", deleteAuthError);
       }
     }
 
     return NextResponse.json({
       success: true,
-      removedUserId,
-      authUserDeleted,
+      message: "User deleted successfully",
     });
   } catch (error: any) {
-    console.error("Error canceling invite:", error);
+    console.error("Error deleting user:", error);
     return NextResponse.json(
       {
         error: error?.message || "Internal server error",

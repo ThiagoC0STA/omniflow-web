@@ -6,6 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useAuthStore } from '@/store/auth-store'
 import { supabase } from '@/lib/supabase'
 import { 
@@ -117,6 +125,11 @@ export default function AdminPage() {
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  
+  // Delete confirmation modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const adminCount = useMemo(
     () => users.filter((userItem) => userItem.role === 'admin').length,
@@ -397,31 +410,51 @@ export default function AdminPage() {
     }
   }
 
-  const deleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      return
-    }
-
-    const userToDelete = users.find(u => u.id === userId)
-    if (userToDelete?.role === 'admin' && adminCount <= 1) {
+  const handleDeleteClick = (userId: string) => {
+    const user = users.find(u => u.id === userId)
+    if (!user) return
+    
+    if (user.role === 'admin' && adminCount <= 1) {
       alert('At least one admin user is required.')
       return
     }
+    
+    setUserToDelete(user)
+    setDeleteModalOpen(true)
+  }
 
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return
+
+    setDeleteLoading(true)
     try {
-      // Delete from database (RLS policies should allow admins to delete)
-      const { error: dbError } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session) {
+        throw new Error('Session expired. Please log in again.')
+      }
 
-      if (dbError) throw dbError
+      const response = await fetch(`/api/users/${userToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete user')
+      }
 
       await fetchUsers()
-      alert('User profile deleted. Note: Auth user deletion requires server-side operation.')
-    } catch (error) {
+      setDeleteModalOpen(false)
+      setUserToDelete(null)
+    } catch (error: any) {
       console.error('Error deleting user:', error)
-      alert('Failed to delete user. You may need to set up RLS policies.')
+      alert(error.message || 'Failed to delete user')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -803,7 +836,7 @@ export default function AdminPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => deleteUser(userItem.id)}
+                          onClick={() => handleDeleteClick(userItem.id)}
                           className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
                           title="Delete user"
                           disabled={userItem.role === 'admin' && adminCount <= 1}
@@ -1233,6 +1266,59 @@ export default function AdminPage() {
           </Card>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <DialogTitle>Delete User</DialogTitle>
+            </div>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{userToDelete?.name || userToDelete?.email || 'this user'}</strong>? 
+              This action cannot be undone and will permanently remove:
+              <ul className="list-disc list-inside mt-3 space-y-1 text-slate-600">
+                <li>User account and authentication</li>
+                <li>User profile and data</li>
+                <li>Associated invites</li>
+              </ul>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteModalOpen(false)
+                setUserToDelete(null)
+              }}
+              disabled={deleteLoading}
+              className="hover:bg-slate-100"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDeleteUser}
+              disabled={deleteLoading}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete User
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
